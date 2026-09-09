@@ -13,6 +13,9 @@ on:
         description: "릴리스 태그 (예: v1.8.3). 비워두면 build.gradle.kts의 version 값으로 자동 생성합니다."
         required: false
 
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     runs-on: windows-latest
