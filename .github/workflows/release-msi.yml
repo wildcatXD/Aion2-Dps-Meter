@@ -1,0 +1,84 @@
+name: Build & Release MSI
+
+# Windows 머신이 없어도 GitHub이 제공하는 windows-latest 러너에서 MSI를 빌드하고
+# GitHub Release로 자동 게시합니다. 태그(v*)를 푸시하거나, Actions 탭에서 수동으로
+# 실행("Run workflow")할 수 있습니다.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "릴리스 태그 (예: v1.8.3). 비워두면 build.gradle.kts의 version 값으로 자동 생성합니다."
+        required: false
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # jpackage의 MSI 타겟은 Windows에서 WiX Toolset(candle.exe/light.exe)이 필요합니다.
+      - name: Install WiX Toolset
+        run: choco install wixtoolset -y --no-progress
+
+      - name: Add WiX to PATH
+        shell: pwsh
+        run: |
+          $wixBin = Get-ChildItem "C:\Program Files (x86)\WiX Toolset*\bin" -Directory -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $wixBin) {
+            $wixBin = Get-ChildItem "C:\Program Files\WiX Toolset*\bin" -Directory -ErrorAction SilentlyContinue |
+              Select-Object -First 1 -ExpandProperty FullName
+          }
+          if (-not $wixBin) { throw "WiX Toolset bin 폴더를 찾지 못했습니다." }
+          echo $wixBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Build MSI
+        shell: cmd
+        run: gradlew.bat packageDistributionForCurrentOS --no-daemon
+
+      - name: Locate MSI artifact
+        id: find_msi
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem -Path . -Recurse -Filter *.msi -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $msi) { throw "빌드된 .msi 파일을 찾지 못했습니다." }
+          echo "path=$($msi.FullName)" >> $env:GITHUB_OUTPUT
+          echo "name=$($msi.Name)" >> $env:GITHUB_OUTPUT
+
+      - name: Determine release tag
+        id: tag
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "push") {
+            $tag = "${{ github.ref_name }}"
+          } elseif ("${{ github.event.inputs.tag }}" -ne "") {
+            $tag = "${{ github.event.inputs.tag }}"
+          } else {
+            $line = Select-String -Path build.gradle.kts -Pattern 'version\s*=\s*"([^"]+)"' | Select-Object -First 1
+            $version = $line.Matches[0].Groups[1].Value
+            $tag = "v$version"
+          }
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }}
+          files: ${{ steps.find_msi.outputs.path }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
