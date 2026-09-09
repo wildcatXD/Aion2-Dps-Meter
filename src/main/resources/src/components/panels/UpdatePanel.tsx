@@ -17,6 +17,7 @@ export const UPDATE_PANEL_DOT_CLS: Record<DownloadState["status"], string> = {
   idle: "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.55)]",
   downloading: "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.55)] animate-pulse",
   complete: "bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.55)]",
+  installing: "bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.55)] animate-pulse",
   error: "bg-red-400 shadow-[0_0_5px_rgba(248,113,113,0.5)]",
 };
 
@@ -24,6 +25,7 @@ export const UPDATE_PANEL_HEADER_TITLE: Record<DownloadState["status"], string> 
   idle: "업데이트 알림",
   downloading: "다운로드 중...",
   complete: "다운로드 완료",
+  installing: "설치 프로그램 실행 중",
   error: "설치 실패",
 };
 
@@ -196,7 +198,16 @@ export const UpdatePanel = ({
             ✓
           </div>
           <p className="text-sm text-slate-200">다운로드가 완료되었습니다</p>
-          <p className="text-sm text-white/45">미터기를 종료한 뒤 재설치 해주세요.</p>
+          <p className="text-sm text-white/45">설치 프로그램을 실행합니다...</p>
+        </div>
+      )}
+
+      {status === "installing" && (
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1.25 px-6 py-10">
+          <div className="w-4 h-4 rounded-full border-2 border-green-400 border-t-transparent animate-spin mb-1" />
+          <p className="text-sm text-slate-200">설치 마법사를 실행했습니다</p>
+          <p className="text-sm text-white/45">잠시 후 미터기가 자동으로 종료됩니다.</p>
+          <p className="text-sm text-white/45">설치 창의 안내에 따라 진행해주세요.</p>
         </div>
       )}
 

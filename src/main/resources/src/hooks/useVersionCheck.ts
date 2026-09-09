@@ -148,12 +148,16 @@ export const useVersionCheck = () => {
     (window as any).onDownloadComplete = () => {
       setDownloadState({ status: "complete" });
     };
+    (window as any).onInstallStarting = () => {
+      setDownloadState({ status: "installing" });
+    };
     (window as any).onDownloadError = () => {
       setDownloadState({ status: "error" });
     };
     return () => {
       delete (window as any).onDownloadProgress;
       delete (window as any).onDownloadComplete;
+      delete (window as any).onInstallStarting;
       delete (window as any).onDownloadError;
     };
   }, []);

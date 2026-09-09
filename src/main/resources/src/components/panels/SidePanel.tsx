@@ -152,7 +152,8 @@ const SidePanelComponent = ({
   const updateShowClose =
     currentType === "update" &&
     downloadState.status !== "downloading" &&
-    downloadState.status !== "complete";
+    downloadState.status !== "complete" &&
+    downloadState.status !== "installing";
 
   const detailsTitle =
     currentType === "details"
