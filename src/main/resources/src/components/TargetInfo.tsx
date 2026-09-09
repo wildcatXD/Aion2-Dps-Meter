@@ -69,7 +69,7 @@ export const TargetInfo = memo(({ targetName, rowHeight, remainHp, maxHp }: Prop
 
   return (
     <div
-      className="relative w-full px-2 mb-2 rounded-sm overflow-hidden bg-black/30"
+        className="relative w-full px-2 mb-2 rounded-sm overflow-hidden bg-black/40"
       style={{ height: rowHeight }}>
       <div
         className="absolute inset-0 origin-left"

@@ -268,7 +268,7 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
             }}
             className={`text-[10px] px-2 py-1 rounded-md border transition-colors ${
               preferredFormat === "hex"
-                ? "bg-purple-500/25 border-purple-500/40 text-white"
+                ? "bg-amber-500/25 border-amber-500/40 text-white"
                 : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
             }`}>
             HEX
@@ -283,7 +283,7 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
             }}
             className={`text-[10px] px-2 py-1 rounded-md border transition-colors ${
               preferredFormat === "rgba"
-                ? "bg-purple-500/25 border-purple-500/40 text-white"
+                ? "bg-amber-500/25 border-amber-500/40 text-white"
                 : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
             }`}>
             RGBA

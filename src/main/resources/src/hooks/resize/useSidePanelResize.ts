@@ -38,6 +38,10 @@ const AXES: Record<
     { key: "historyPanelHeight", dir: "y", min: 130, max: 860 },
     { key: "historyPanelWidth", dir: "x", min: 360, max: 560 },
   ],
+  guild: [
+    { key: "historyPanelHeight", dir: "y", min: 130, max: 860 },
+    { key: "historyPanelWidth", dir: "x", min: 360, max: 560 },
+  ],
 };
 
 function persistSidePanelSize(
@@ -56,6 +60,10 @@ function persistSidePanelSize(
       j.saveProps("settingsPanelWidth", String(state.settingsPanelWidth));
       break;
     case "history":
+      j.saveProps("historyPanelHeight", String(state.historyPanelHeight));
+      j.saveProps("historyPanelWidth", String(state.historyPanelWidth));
+      break;
+    case "guild":
       j.saveProps("historyPanelHeight", String(state.historyPanelHeight));
       j.saveProps("historyPanelWidth", String(state.historyPanelWidth));
       break;
@@ -97,6 +105,8 @@ export function useSidePanelResize(panelType: PanelType) {
         return { panelWidth: dims.settingsPanelWidth, panelHeight: dims.settingsPanelHeight };
       case "history":
         return { panelWidth: dims.historyPanelWidth, panelHeight: dims.historyPanelHeight };
+      case "guild":
+        return { panelWidth: dims.historyPanelWidth, panelHeight: Math.max(dims.historyPanelHeight, 420) };
       case "update":
         return { panelWidth: 300, panelHeight: 160 };
       default:

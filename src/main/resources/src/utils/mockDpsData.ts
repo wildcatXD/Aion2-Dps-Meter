@@ -803,7 +803,7 @@ const MOCK_DATA = {
 export const injectMockDpsData = () => {
   if ((window as any).javaBridge) return;
 
-  (window as any).javaBridge = {
+  const mockBridge = {
     getDpsData: () => JSON.stringify(MOCK_DATA),
     getBattleDetail: (_id: string) => JSON.stringify(MOCK_DETAIL_DATA),
     getBattleDetailFromList: (_idx: number, _uid: number) => JSON.stringify(MOCK_DETAIL_DATA),
@@ -823,12 +823,30 @@ export const injectMockDpsData = () => {
         if (percent >= 100) {
           percent = 100;
           clearInterval(timer);
-          setTimeout(() => (window as any).onDownloadComplete?.(), 500);
+          setTimeout(() => {
+            (window as any).onDownloadComplete?.();
+            setTimeout(() => (window as any).onInstallStarting?.(), 400);
+          }, 500);
         }
         (window as any).onDownloadProgress?.(percent);
       }, 400);
     },
   };
+
+  // 실제 브릿지에는 있지만 여기서 흉내내지 않은 함수가 호출되면(예: moveWindow, loadProps)
+  // "is not a function" 예외로 렌더링이 통째로 멈추는 걸 막기 위해, 정의되지 않은 함수는
+  // 아무것도 하지 않는 함수로 대체합니다. 실제 loadProps처럼 값이 없을 땐 undefined를
+  // 반환해야 `?? 기본값` 처리가 제대로 동작합니다(빈 문자열은 nullish가 아니라 무시됨).
+  (window as any).javaBridge = new Proxy(mockBridge, {
+    get(target, prop: string) {
+      if (prop in target) return (target as Record<string, unknown>)[prop];
+      return (..._args: unknown[]) => {
+        console.log(`[mock] javaBridge.${prop}(...)`, _args);
+        return undefined;
+      };
+    },
+  });
+
   const MOCK_JOIN_REQUESTS = [
     {
       nickname: "치4유성유저F",

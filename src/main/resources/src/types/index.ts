@@ -20,7 +20,9 @@ export interface Player {
   name: string;
   job: string;
   dps: number;
+  nDps: number;
   amount: number;
+  nAmount: number;
   damageContribution: number;
   entireContribution: number;
   isUser: boolean;
@@ -79,7 +81,7 @@ export interface Hotkey {
   modifiers: number;
   vkCode: number;
 }
-export type PanelType = "details" | "settings" | "update" | "history" | null;
+export type PanelType = "details" | "settings" | "update" | "history" | "guild" | null;
 export interface UpdateInfo {
   currentVersion: string;
   msiUrl: string;
@@ -91,6 +93,7 @@ export type DownloadState =
   | { status: "idle" }
   | { status: "downloading"; percent: number }
   | { status: "complete" }
+  | { status: "installing" }
   | { status: "error" };
 
 export type CheckStatus = "idle" | "checking" | "upToDate" | "updateAvailable" | "error";

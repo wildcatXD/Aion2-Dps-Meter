@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { Version, UpdateInfo, DownloadState, CheckStatus } from "@/types";
 
-const API = "https://api.github.com/repos/TK-open-public/Aion2-Dps-Meter/releases?per_page=10";
-const RELEASE_URL = "https://github.com/TK-open-public/Aion2-Dps-Meter/releases";
+const API = "https://api.github.com/repos/wildcatXD/Aion2-Dps-Meter/releases?per_page=10";
+const RELEASE_URL = "https://github.com/wildcatXD/Aion2-Dps-Meter/releases";
 
 const RETRY_INTERVAL = 800;
 const RETRY_LIMIT = 5;
@@ -148,12 +148,16 @@ export const useVersionCheck = () => {
     (window as any).onDownloadComplete = () => {
       setDownloadState({ status: "complete" });
     };
+    (window as any).onInstallStarting = () => {
+      setDownloadState({ status: "installing" });
+    };
     (window as any).onDownloadError = () => {
       setDownloadState({ status: "error" });
     };
     return () => {
       delete (window as any).onDownloadProgress;
       delete (window as any).onDownloadComplete;
+      delete (window as any).onInstallStarting;
       delete (window as any).onDownloadError;
     };
   }, []);

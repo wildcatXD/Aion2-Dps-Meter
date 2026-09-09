@@ -9,6 +9,7 @@ export type DisplayMode =
   | "amount_percent"
   | "amount_full_dps_percent"
   | "amount_full_percent";
+export type DpsMetric = "rdps" | "ndps";
 export type TargetInfoDisplayMode =
   | "hp_full_percent"
   | "hp_percent"
@@ -42,25 +43,30 @@ export interface ThemeColors {
 }
 
 export const DEFAULT_THEME: ThemeColors = {
-  userBar: ["#55c42a", "#3a9e20"],
-  normalBar: ["#ffc837", "#e8960a"],
-  warningBar: ["#ffa537", "#e77808"],
-  errorBar: ["#c24343", "#d91717"],
-  bossBar: ["#6b0f1a", "#5c1a24"],
-  serverAColor: "#95ddff",
-  serverBColor: "#f3a5ff",
-  serverDefaultColor: "#ffffff",
-  meterStatAmount: "#ffe566",
-  meterStatDps: "#ffffff",
-  meterStatPercent: "#ffe566",
-  bossRightValue: "#e63333",
-  combatTimeColor: "#D0D0D0",
+  userBar: ["#fbbf24", "#d97706"],
+  normalBar: ["#e0b45c", "#92400e"],
+  warningBar: ["#fb923c", "#c2410c"],
+  errorBar: ["#f87171", "#be123c"],
+  bossBar: ["#1e1b4b", "#312e81"],
+  serverAColor: "#93c5fd",
+  serverBColor: "#c4b5fd",
+  serverDefaultColor: "#e0e0e0",
+  meterStatAmount: "#fde68a",
+  meterStatDps: "#f8fafc",
+  meterStatPercent: "#fbbf24",
+  bossRightValue: "#fbbf24",
+  combatTimeColor: "#cbd5e1",
 };
+
+const isLegacyDefaultTheme = (theme: ThemeColors) =>
+  theme.userBar?.[0] === "#55c42a" && theme.normalBar?.[0] === "#ffc837";
 
 interface SettingsState {
   // hotkey: Hotkey;
   displayMode: DisplayMode;
   setDisplayMode: (mode: DisplayMode) => void;
+  dpsMetric: DpsMetric;
+  setDpsMetric: (metric: DpsMetric) => void;
   targetInfoDisplayMode: TargetInfoDisplayMode;
   setTargetInfoDisplayMode: (mode: TargetInfoDisplayMode) => void;
   nameDisplay: NameDisplay;
@@ -146,6 +152,12 @@ interface SettingsState {
   uiY: number;
   resetMeterPosition: () => void;
   setUiPosition: (x: number, y: number) => void;
+  guildWebUrl: string;
+  setGuildWebUrl: (v: string) => void;
+  guildDeviceToken: string;
+  setGuildDeviceToken: (v: string) => void;
+  guildLinkedName: string;
+  setGuildLinkedName: (v: string) => void;
 }
 
 const jb = () => (window as any).javaBridge;
@@ -163,6 +175,7 @@ const defaultSettings = {
   windowY: 0,
   isLoaded: false,
   displayMode: "dps_percent" as DisplayMode,
+  dpsMetric: "rdps" as DpsMetric,
   targetInfoDisplayMode: "hp_full_percent" as TargetInfoDisplayMode,
   nameDisplay: "all" as NameDisplay,
   fontFamily: "NEXON Lv2 Gothic" as FontFamily,
@@ -197,6 +210,9 @@ const defaultSettings = {
   updatePanelHeight: 160,
   uiX: 0,
   uiY: 0,
+  guildWebUrl: "",
+  guildDeviceToken: "",
+  guildLinkedName: "",
 };
 
 export const useSettingsStore = create<SettingsState>((set) => {
@@ -231,6 +247,10 @@ export const useSettingsStore = create<SettingsState>((set) => {
 
     try {
       if (savedThemeRaw) savedTheme = { ...DEFAULT_THEME, ...JSON.parse(savedThemeRaw) };
+      if (isLegacyDefaultTheme(savedTheme)) {
+        savedTheme = DEFAULT_THEME;
+        j.saveProps?.("theme", JSON.stringify(DEFAULT_THEME));
+      }
     } catch {}
 
     const savedSidePanelXRaw = j.loadProps?.("sidePanelX");
@@ -256,6 +276,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
       detailHeight: Number(j.loadProps?.("detailHeight")) || defaultSettings.detailHeight,
       detailWidth: Number(j.loadProps?.("detailWidth")) || defaultSettings.detailWidth,
       displayMode: j.loadProps?.("displayMode") ?? defaultSettings.displayMode,
+      dpsMetric: (j.loadProps?.("dpsMetric") as DpsMetric) || defaultSettings.dpsMetric,
       targetInfoDisplayMode:
         j.loadProps?.("targetInfoDisplayMode") ?? defaultSettings.targetInfoDisplayMode,
       isDebugMode: j.isDebuggingMode?.() ?? false,
@@ -313,6 +334,9 @@ export const useSettingsStore = create<SettingsState>((set) => {
         Number(j.loadProps?.("updatePanelHeight")) || defaultSettings.updatePanelHeight,
       uiX: Number(j.loadProps?.("uiX")) || defaultSettings.uiX,
       uiY: Number(j.loadProps?.("uiY")) || defaultSettings.uiY,
+      guildWebUrl: j.loadProps?.("guildWebUrl") || defaultSettings.guildWebUrl,
+      guildDeviceToken: j.loadProps?.("guildDeviceToken") || defaultSettings.guildDeviceToken,
+      guildLinkedName: j.loadProps?.("guildLinkedName") || defaultSettings.guildLinkedName,
 
       isLoaded: true,
     });
@@ -332,6 +356,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
     detailWidth: defaultSettings.detailWidth,
     visibleSkillCodes: defaultSettings.visibleSkillCodes,
     displayMode: defaultSettings.displayMode,
+    dpsMetric: defaultSettings.dpsMetric,
     targetInfoDisplayMode: defaultSettings.targetInfoDisplayMode,
     nameDisplay: defaultSettings.nameDisplay,
     fontFamily: defaultSettings.fontFamily,
@@ -367,6 +392,9 @@ export const useSettingsStore = create<SettingsState>((set) => {
     updatePanelHeight: defaultSettings.updatePanelHeight,
     uiX: defaultSettings.uiX,
     uiY: defaultSettings.uiY,
+    guildWebUrl: defaultSettings.guildWebUrl,
+    guildDeviceToken: defaultSettings.guildDeviceToken,
+    guildLinkedName: defaultSettings.guildLinkedName,
 
     // setHotkey: (hotkey) => {
     //   set({ hotkey });
@@ -397,6 +425,10 @@ export const useSettingsStore = create<SettingsState>((set) => {
     setDisplayMode: (displayMode) => {
       set({ displayMode });
       jb()?.saveProps?.("displayMode", displayMode);
+    },
+    setDpsMetric: (dpsMetric) => {
+      set({ dpsMetric });
+      jb()?.saveProps?.("dpsMetric", dpsMetric);
     },
     setTargetInfoDisplayMode: (targetInfoDisplayMode) => {
       set({ targetInfoDisplayMode });
@@ -569,6 +601,18 @@ export const useSettingsStore = create<SettingsState>((set) => {
       set({ uiX, uiY });
       jb()?.saveProps?.("uiX", String(uiX));
       jb()?.saveProps?.("uiY", String(uiY));
+    },
+    setGuildWebUrl: (guildWebUrl) => {
+      set({ guildWebUrl });
+      jb()?.saveProps?.("guildWebUrl", guildWebUrl);
+    },
+    setGuildDeviceToken: (guildDeviceToken) => {
+      set({ guildDeviceToken });
+      jb()?.saveProps?.("guildDeviceToken", guildDeviceToken);
+    },
+    setGuildLinkedName: (guildLinkedName) => {
+      set({ guildLinkedName });
+      jb()?.saveProps?.("guildLinkedName", guildLinkedName);
     },
   };
 });

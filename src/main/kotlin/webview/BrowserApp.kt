@@ -176,8 +176,8 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         fun startUpdate(msiUrl: String) {
             Thread {
                 try {
-                    val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "aion2meter4j").also { it.mkdirs() }
-                    val msiFile = java.io.File(tempDir, "aion2meter_update.msi")
+                    val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "bit-dps-meter").also { it.mkdirs() }
+                    val msiFile = java.io.File(tempDir, "bit-dps-meter-update.msi")
 
                     val connection = java.net.URI(msiUrl).toURL().openConnection() as java.net.HttpURLConnection
                     connection.connect()
@@ -201,8 +201,29 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                         }
                     }
 
-                    Runtime.getRuntime().exec(arrayOf("explorer.exe", tempDir.absolutePath))
                     Platform.runLater { engine.executeScript("onDownloadComplete()") }
+
+                    // 설치 프로그램을 바로 실행합니다. 미터기가 계속 실행 중이면 실행 파일이
+                    // 잠겨 있어 설치가 막힐 수 있으므로, 설치 마법사를 띄운 뒤 앱을 스스로 종료합니다.
+                    val installerLaunched = try {
+                        Runtime.getRuntime().exec(arrayOf("msiexec", "/i", msiFile.absolutePath))
+                        true
+                    } catch (e: Exception) {
+                        logger.error("설치 프로그램 실행 실패, 폴더만 엽니다", e)
+                        try {
+                            Runtime.getRuntime().exec(arrayOf("explorer.exe", tempDir.absolutePath))
+                        } catch (e2: Exception) {
+                            logger.error("탐색기 열기 실패", e2)
+                        }
+                        false
+                    }
+
+                    if (installerLaunched) {
+                        Platform.runLater { engine.executeScript("onInstallStarting()") }
+                        Thread.sleep(1500)
+                        Platform.exit()
+                        exitProcess(0)
+                    }
                 } catch (e: Exception) {
                     logger.error("업데이트 실패", e)
                     Platform.runLater { engine.executeScript("onDownloadError()") }
@@ -292,7 +313,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         stage.initStyle(StageStyle.TRANSPARENT)
         stage.scene = scene
         stage.isAlwaysOnTop = true
-        stage.title = "Aion2 Dps Overlay"
+        stage.title = "Bit Dps Overlay"
 
         stage.show()
         applyOverlayWindowStyle(stage.title)
@@ -448,7 +469,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                 popup.addSeparator()
                 popup.add(exitItem)
 
-                trayIcon = TrayIcon(image, "Aion2 DPS Overlay", popup).apply {
+                trayIcon = TrayIcon(image, "빛 DPS Overlay", popup).apply {
                     isImageAutoSize = true
                     addMouseListener(object : MouseAdapter() {
                         override fun mouseClicked(e: MouseEvent) {

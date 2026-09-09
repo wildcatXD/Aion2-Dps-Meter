@@ -1,9 +1,11 @@
 package com.tbread
 
+import com.tbread.config.PropertyHandler
 import com.tbread.data.DataManager
 import com.tbread.entity.*
 import com.tbread.entity.enums.JobClass
 import com.tbread.entity.enums.SpecialDamage
+import com.tbread.ndps.NdpsSynergy
 import org.slf4j.LoggerFactory
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -18,6 +20,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
 
     private var lastProcessedCount = 0
     private val cachedInfo = HashMap<Int, DpsInformation>()
+    private val cachedNdpsAmount = HashMap<Int, Double>()
     private val cachedContributors = mutableSetOf<User>()
     private var cachedBattleEnd = 0L
     private var cachedBattleStart = 0L
@@ -26,6 +29,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
     private fun resetCache() {
         lastProcessedCount = 0
         cachedInfo.clear()
+        cachedNdpsAmount.clear()
         cachedContributors.clear()
         cachedBattleEnd = 0L
         cachedBattleStart = 0L
@@ -58,7 +62,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         if (storageTarget != currentTarget && !prevTargetDummy
             && storageTarget != -1 && currentTarget != -1
         ) {
-            DataManager.saveBattleLog(recentData)
+            DataManager.saveBattleLog(recentData, buildEncounterSnapshot(recentData))
             recentDataSaved = true
         }
         if (storageTarget != currentTarget) {
@@ -73,7 +77,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
                 recentData.battleEnd = battleEnd
             }
             if (isNewBattleEnd && !recentData.isEmpty() && !recentTargetWasDummy) {
-                DataManager.saveBattleLog(recentData)
+                DataManager.saveBattleLog(recentData, buildEncounterSnapshot(recentData))
                 recentDataSaved = true
             }
             return recentData
@@ -94,7 +98,11 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
                 if (user.job == null) {
                     user.job = JobClass.convertFromSkill(packet.getSkillCode1())
                 }
-                cachedInfo.getOrPut(user.id) { DpsInformation() }.addDamage(packet.getDamage().toDouble())
+                val damage = packet.getDamage().toDouble()
+                cachedInfo.getOrPut(user.id) { DpsInformation() }.addDamage(damage)
+                val extra = NdpsSynergy.partyExtraAmp(user.id, packet.getTimeStamp())
+                cachedNdpsAmount[user.id] = (cachedNdpsAmount[user.id] ?: 0.0) +
+                    NdpsSynergy.normalizeHit(damage, extra)
                 val ts = packet.getTimeStamp()
                 if (cachedBattleStart == 0L) {
                     cachedBattleStart = ts; isCachedBattleStartFake = true
@@ -131,11 +139,14 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         val duration = report.battleEnd - report.battleStart
         val mobMaxHp = DataManager.mobMaxHp(currentTarget)?.toDouble() ?: 0.0
         cachedInfo.forEach { (uid, cached) ->
+            val nAmount = cachedNdpsAmount[uid] ?: cached.amount
             report.information[uid] = DpsInformation(
                 amount = cached.amount,
                 dps = if (duration > 0) cached.amount / duration * 1000 else 0.0,
                 contribution = if (totalDamage > 0) cached.amount / totalDamage * 100 else 0.0,
-                entireContribution = if (mobMaxHp > 0) cached.amount / mobMaxHp * 100 else 0.0
+                entireContribution = if (mobMaxHp > 0) cached.amount / mobMaxHp * 100 else 0.0,
+                nAmount = nAmount,
+                nDps = if (duration > 0) nAmount / duration * 1000 else 0.0,
             )
         }
 
@@ -217,7 +228,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
 
     fun resetDataStorage() {
         if (!recentData.isEmpty() && !recentDataSaved && !DataManager.isCurrentTargetDummy()) {
-            DataManager.saveBattleLog(recentData)
+            DataManager.saveBattleLog(recentData, buildEncounterSnapshot(recentData))
             recentDataSaved = true
         }
         DataManager.flushPacket()
@@ -236,5 +247,89 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         recentDataSaved = false
         resetCache()
         logger.info("전체 강제 초기화 완료")
+    }
+
+    private fun fillNdps(report: DpsReport) {
+        val packets = report.packets ?: return
+        if (packets.isEmpty()) return
+        val duration = (report.battleEnd - report.battleStart).coerceAtLeast(0L)
+        val sums = HashMap<Int, Double>()
+        for (packet in packets) {
+            val actor = DataManager.summonerId(packet.getActorId()) ?: packet.getActorId()
+            val extra = NdpsSynergy.partyExtraAmp(actor, packet.getTimeStamp())
+            sums[actor] = (sums[actor] ?: 0.0) +
+                NdpsSynergy.normalizeHit(packet.getDamage().toDouble(), extra)
+        }
+        for ((uid, nAmount) in sums) {
+            val info = report.information[uid] ?: continue
+            info.nAmount = nAmount
+            info.nDps = if (duration > 0) nAmount / duration * 1000 else 0.0
+        }
+    }
+
+    private fun buildEncounterSnapshot(report: DpsReport): EncounterSnapshot {
+        fillNdps(report)
+        val durationMs = (report.battleEnd - report.battleStart).coerceAtLeast(0L)
+        val players = report.contributors.map { user ->
+            val info = report.information[user.id]
+            EncounterPlayerSnapshot(
+                id = user.id,
+                nickname = user.nickname,
+                server = user.server,
+                job = user.job?.className,
+                isSelf = user.isExecutor,
+                combatPower = user.power,
+                damage = info?.amount ?: 0.0,
+                dps = info?.dps ?: 0.0,
+                nDamage = info?.nAmount ?: 0.0,
+                nDps = info?.nDps ?: 0.0,
+                sharePercent = info?.contribution ?: 0.0,
+                skills = battleDetails(report, user.id).values.map { skill ->
+                    EncounterSkillSnapshot(
+                        skillCode = skill.skillCode,
+                        name = skill.name,
+                        damageAmount = skill.damageAmount,
+                        dotDamageAmount = skill.dotDamageAmount,
+                        dotTimes = skill.dotTimes,
+                        hitTimes = skill.times,
+                        critTimes = skill.critTimes,
+                        backTimes = skill.backTimes,
+                        perfectTimes = skill.perfectTimes,
+                        doubleTimes = skill.doubleTimes,
+                        parryTimes = skill.parryTimes,
+                        shardTimes = skill.shardTimes,
+                        multiHitTimes = skill.multiHitTimes,
+                    )
+                }.sortedByDescending { it.damageAmount + it.dotDamageAmount },
+                buffs = getBuffOperatingRate(user.id, report.battleStart, report.battleEnd).map { buff ->
+                    EncounterBuffSnapshot(
+                        code = buff.code,
+                        name = buff.name,
+                        summary = buff.summary,
+                        effect = buff.effect,
+                        uptimePercent = buff.operatingRate,
+                        actorId = buff.actorId,
+                    )
+                }.sortedByDescending { it.uptimePercent },
+            )
+        }.sortedByDescending { it.damage }
+        val target = report.target?.let {
+            EncounterTargetSnapshot(
+                id = it.id,
+                code = it.mob.code,
+                name = it.mob.name,
+                boss = it.mob.boss,
+                remainHp = it.remainHp,
+                maxHp = it.maxHp,
+            )
+        }
+        return EncounterSnapshot(
+            meterVersion = PropertyHandler.getProperty("version") ?: "unknown",
+            battleStart = report.battleStart,
+            battleEnd = report.battleEnd,
+            durationMs = durationMs,
+            target = target,
+            players = players,
+        )
     }
 }

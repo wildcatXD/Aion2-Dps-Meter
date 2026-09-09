@@ -52,11 +52,11 @@
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
 
-  --color-row-fill: #ffc837;
-  --color-isUser-fill: #65d635;
-  --color-warning-fill: #ffa537;
-  --color-error-fill: #c24343;
-  --color-dps: #e8f5e9;
+  --color-row-fill: #e0b45c;
+  --color-isUser-fill: #fbbf24;
+  --color-warning-fill: #fb923c;
+  --color-error-fill: #f87171;
+  --color-dps: #f8fafc;
 }
 
 :root {
@@ -139,14 +139,14 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(30, 30, 30);
+  background: rgba(11, 13, 23);
   border-radius: 999px;
   margin-top: 4px;
   margin-bottom: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: rgb(77, 77, 77);
+  background-color: rgb(180, 140, 60);
   border-radius: 999px;
 }
 

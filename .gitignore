@@ -3,7 +3,8 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
-/src/main/resources/json/
+# json catalogs are tracked in this legion fork so clones can build.
+# Re-extract from the latest MSI when mob/skill names go stale.
 
 ### IntelliJ IDEA ###
 .idea/modules.xml

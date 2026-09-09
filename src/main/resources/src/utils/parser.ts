@@ -11,6 +11,8 @@ interface Contributor {
 interface InformationValue {
   amount: number;
   dps: number;
+  nAmount?: number;
+  nDps?: number;
   contribution: number;
   entireContribution: number;
 }
@@ -103,7 +105,11 @@ export function parseCombatData(raw: unknown): {
     if (!info) continue;
 
     const dps = Math.trunc(Number(info.dps));
+    const nDpsRaw = Number(info.nDps);
+    const nDps = Number.isFinite(nDpsRaw) ? Math.trunc(nDpsRaw) : dps;
     const amount = Number(info.amount);
+    const nAmountRaw = Number(info.nAmount);
+    const nAmount = Number.isFinite(nAmountRaw) && nAmountRaw > 0 ? nAmountRaw : amount;
     const damageContribution = Number(info.contribution);
     const entireContribution = Number(info.entireContribution);
     if (!Number.isFinite(dps)) continue;
@@ -119,7 +125,9 @@ export function parseCombatData(raw: unknown): {
       job: contributor.job ?? "",
       server: contributor.server,
       dps,
+      nDps,
       amount,
+      nAmount,
       damageContribution,
       entireContribution,
       isUser: contributor.isExecutor === true,
