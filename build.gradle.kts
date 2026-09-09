@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.tbread"
-version = "1.7.5"
+version = "1.8.0"
 
 val frontendDir = layout.projectDirectory.dir("src/main/resources")
 val frontendBuildInputs = fileTree(frontendDir) {
@@ -111,13 +111,13 @@ compose.desktop {
                 includeAllModules = true
                 shortcut = true
                 menu = true
-                menuGroup = "aion2meter4j"
+                menuGroup = "bit-dps-meter"
                 dirChooser = true
             }
             targetFormats(TargetFormat.Msi)
-            packageName = "aion2meter4j"
+            packageName = "bit-dps-meter"
             packageVersion = version.toString()
-            copyright = "Copyright 2026 TK open public Licensed under MIT License"
+            copyright = "Copyright 2026 TK-open-public (MIT). Legion fork: 빛 레기온"
         }
 
 

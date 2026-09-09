@@ -13,7 +13,7 @@ pluginManagement {
     }
 }
 
-rootProject.name = "aion2meter4j"
+rootProject.name = "bit-dps-meter"
 
 if (file("addon").exists()) {
     include(":addon")

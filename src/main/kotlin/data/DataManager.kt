@@ -276,12 +276,12 @@ object DataManager {
     /*
     battleLog 영역
      */
-    fun saveBattleLog(data: DpsReport) {
+    fun saveBattleLog(data: DpsReport, encounter: EncounterSnapshot? = null) {
         val snapshot = data.copy(
             contributors = data.contributors.mapTo(mutableSetOf()) { it.copy() }
         )
         val packets = rawPacketsInRange(data.battleStart - 5000L, data.battleEnd)
-        battleLogRepository.save(DpsLog(snapshot, summonRepository.getAll(), packets))
+        battleLogRepository.save(DpsLog(snapshot, summonRepository.getAll(), packets, encounter))
         rawPacketBuffer.removeIf { it.timestamp <= data.battleEnd }
     }
 

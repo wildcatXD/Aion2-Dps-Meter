@@ -176,8 +176,8 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         fun startUpdate(msiUrl: String) {
             Thread {
                 try {
-                    val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "aion2meter4j").also { it.mkdirs() }
-                    val msiFile = java.io.File(tempDir, "aion2meter_update.msi")
+                    val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "bit-dps-meter").also { it.mkdirs() }
+                    val msiFile = java.io.File(tempDir, "bit-dps-meter-update.msi")
 
                     val connection = java.net.URI(msiUrl).toURL().openConnection() as java.net.HttpURLConnection
                     connection.connect()
@@ -292,7 +292,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         stage.initStyle(StageStyle.TRANSPARENT)
         stage.scene = scene
         stage.isAlwaysOnTop = true
-        stage.title = "Aion2 Dps Overlay"
+        stage.title = "Bit Dps Overlay"
 
         stage.show()
         applyOverlayWindowStyle(stage.title)
@@ -448,7 +448,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                 popup.addSeparator()
                 popup.add(exitItem)
 
-                trayIcon = TrayIcon(image, "Aion2 DPS Overlay", popup).apply {
+                trayIcon = TrayIcon(image, "빛 DPS Overlay", popup).apply {
                     isImageAutoSize = true
                     addMouseListener(object : MouseAdapter() {
                         override fun mouseClicked(e: MouseEvent) {

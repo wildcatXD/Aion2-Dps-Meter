@@ -1,5 +1,6 @@
 package com.tbread
 
+import com.tbread.config.PropertyHandler
 import com.tbread.data.DataManager
 import com.tbread.entity.*
 import com.tbread.entity.enums.JobClass
@@ -58,7 +59,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         if (storageTarget != currentTarget && !prevTargetDummy
             && storageTarget != -1 && currentTarget != -1
         ) {
-            DataManager.saveBattleLog(recentData)
+            DataManager.saveBattleLog(recentData, buildEncounterSnapshot(recentData))
             recentDataSaved = true
         }
         if (storageTarget != currentTarget) {
@@ -73,7 +74,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
                 recentData.battleEnd = battleEnd
             }
             if (isNewBattleEnd && !recentData.isEmpty() && !recentTargetWasDummy) {
-                DataManager.saveBattleLog(recentData)
+                DataManager.saveBattleLog(recentData, buildEncounterSnapshot(recentData))
                 recentDataSaved = true
             }
             return recentData
@@ -217,7 +218,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
 
     fun resetDataStorage() {
         if (!recentData.isEmpty() && !recentDataSaved && !DataManager.isCurrentTargetDummy()) {
-            DataManager.saveBattleLog(recentData)
+            DataManager.saveBattleLog(recentData, buildEncounterSnapshot(recentData))
             recentDataSaved = true
         }
         DataManager.flushPacket()
@@ -236,5 +237,68 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         recentDataSaved = false
         resetCache()
         logger.info("전체 강제 초기화 완료")
+    }
+
+    private fun buildEncounterSnapshot(report: DpsReport): EncounterSnapshot {
+        val durationMs = (report.battleEnd - report.battleStart).coerceAtLeast(0L)
+        val players = report.contributors.map { user ->
+            val info = report.information[user.id]
+            EncounterPlayerSnapshot(
+                id = user.id,
+                nickname = user.nickname,
+                server = user.server,
+                job = user.job?.className,
+                isSelf = user.isExecutor,
+                combatPower = user.power,
+                damage = info?.amount ?: 0.0,
+                dps = info?.dps ?: 0.0,
+                sharePercent = info?.contribution ?: 0.0,
+                skills = battleDetails(report, user.id).values.map { skill ->
+                    EncounterSkillSnapshot(
+                        skillCode = skill.skillCode,
+                        name = skill.name,
+                        damageAmount = skill.damageAmount,
+                        dotDamageAmount = skill.dotDamageAmount,
+                        dotTimes = skill.dotTimes,
+                        hitTimes = skill.times,
+                        critTimes = skill.critTimes,
+                        backTimes = skill.backTimes,
+                        perfectTimes = skill.perfectTimes,
+                        doubleTimes = skill.doubleTimes,
+                        parryTimes = skill.parryTimes,
+                        shardTimes = skill.shardTimes,
+                        multiHitTimes = skill.multiHitTimes,
+                    )
+                }.sortedByDescending { it.damageAmount + it.dotDamageAmount },
+                buffs = getBuffOperatingRate(user.id, report.battleStart, report.battleEnd).map { buff ->
+                    EncounterBuffSnapshot(
+                        code = buff.code,
+                        name = buff.name,
+                        summary = buff.summary,
+                        effect = buff.effect,
+                        uptimePercent = buff.operatingRate,
+                        actorId = buff.actorId,
+                    )
+                }.sortedByDescending { it.uptimePercent },
+            )
+        }.sortedByDescending { it.damage }
+        val target = report.target?.let {
+            EncounterTargetSnapshot(
+                id = it.id,
+                code = it.mob.code,
+                name = it.mob.name,
+                boss = it.mob.boss,
+                remainHp = it.remainHp,
+                maxHp = it.maxHp,
+            )
+        }
+        return EncounterSnapshot(
+            meterVersion = PropertyHandler.getProperty("version") ?: "unknown",
+            battleStart = report.battleStart,
+            battleEnd = report.battleEnd,
+            durationMs = durationMs,
+            target = target,
+            players = players,
+        )
     }
 }
