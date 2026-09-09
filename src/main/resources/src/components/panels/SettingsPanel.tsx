@@ -21,6 +21,7 @@ import { SettingsItem } from "./SettingsItem";
 import { SettingsRow } from "./SettingsRow";
 import { SettingsControlInput } from "./SettingsControlInput";
 import { ColorSwatch, GradientRow } from "@/components/colorpicker";
+import { GuildPairSettings } from "./GuildPairSettings";
 import type { UpdateInfo } from "@/types";
 import {
   Select,
@@ -302,6 +303,7 @@ export const SettingsPanel = ({
             </Button>
           </SettingsRow>
         </SettingsItem>
+        <GuildPairSettings />
 
         <SettingsItem>
           <SettingsRow

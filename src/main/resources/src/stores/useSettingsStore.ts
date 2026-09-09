@@ -152,6 +152,12 @@ interface SettingsState {
   uiY: number;
   resetMeterPosition: () => void;
   setUiPosition: (x: number, y: number) => void;
+  guildWebUrl: string;
+  setGuildWebUrl: (v: string) => void;
+  guildDeviceToken: string;
+  setGuildDeviceToken: (v: string) => void;
+  guildLinkedName: string;
+  setGuildLinkedName: (v: string) => void;
 }
 
 const jb = () => (window as any).javaBridge;
@@ -204,6 +210,9 @@ const defaultSettings = {
   updatePanelHeight: 160,
   uiX: 0,
   uiY: 0,
+  guildWebUrl: "",
+  guildDeviceToken: "",
+  guildLinkedName: "",
 };
 
 export const useSettingsStore = create<SettingsState>((set) => {
@@ -325,6 +334,9 @@ export const useSettingsStore = create<SettingsState>((set) => {
         Number(j.loadProps?.("updatePanelHeight")) || defaultSettings.updatePanelHeight,
       uiX: Number(j.loadProps?.("uiX")) || defaultSettings.uiX,
       uiY: Number(j.loadProps?.("uiY")) || defaultSettings.uiY,
+      guildWebUrl: j.loadProps?.("guildWebUrl") || defaultSettings.guildWebUrl,
+      guildDeviceToken: j.loadProps?.("guildDeviceToken") || defaultSettings.guildDeviceToken,
+      guildLinkedName: j.loadProps?.("guildLinkedName") || defaultSettings.guildLinkedName,
 
       isLoaded: true,
     });
@@ -380,6 +392,9 @@ export const useSettingsStore = create<SettingsState>((set) => {
     updatePanelHeight: defaultSettings.updatePanelHeight,
     uiX: defaultSettings.uiX,
     uiY: defaultSettings.uiY,
+    guildWebUrl: defaultSettings.guildWebUrl,
+    guildDeviceToken: defaultSettings.guildDeviceToken,
+    guildLinkedName: defaultSettings.guildLinkedName,
 
     // setHotkey: (hotkey) => {
     //   set({ hotkey });
@@ -586,6 +601,18 @@ export const useSettingsStore = create<SettingsState>((set) => {
       set({ uiX, uiY });
       jb()?.saveProps?.("uiX", String(uiX));
       jb()?.saveProps?.("uiY", String(uiY));
+    },
+    setGuildWebUrl: (guildWebUrl) => {
+      set({ guildWebUrl });
+      jb()?.saveProps?.("guildWebUrl", guildWebUrl);
+    },
+    setGuildDeviceToken: (guildDeviceToken) => {
+      set({ guildDeviceToken });
+      jb()?.saveProps?.("guildDeviceToken", guildDeviceToken);
+    },
+    setGuildLinkedName: (guildLinkedName) => {
+      set({ guildLinkedName });
+      jb()?.saveProps?.("guildLinkedName", guildLinkedName);
     },
   };
 });

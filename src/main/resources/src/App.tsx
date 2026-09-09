@@ -16,6 +16,7 @@ import { useJoinRequestStore } from "@/stores/useJoinRequestStore";
 import { JoinRequestPanel } from "@/components/joinPanel/JoinRequestPanel";
 import { cn } from "@/lib/utils";
 import { DebugConsole } from "./components/DebugConsole";
+import { useGuildInbox } from "@/hooks/useGuildInbox";
 import lock from "@/assets/lock.png";
 export default function App() {
   const {
@@ -49,6 +50,7 @@ export default function App() {
   const clearAll = useJoinRequestStore((s) => s.clearAll);
   const refuseRequest = useJoinRequestStore((s) => s.refuseRequest);
 
+  useGuildInbox();
   const [activePanel, setActivePanel] = useState<PanelType>(null);
   const { meterWidth, onMouseDown, isDragging } = useResizable();
   const {

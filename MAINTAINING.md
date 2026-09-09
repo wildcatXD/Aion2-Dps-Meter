@@ -53,13 +53,15 @@ cp json/* src/main/resources/json/
 
 파티 신청 패널 스킬 목록은 `src/main/resources/src/constants/codes.ts` 입니다. 업스트림은 이 파일을 gitignore에 두었지만, 이 포크는 프론트 빌드가 되도록 커밋합니다.
 
-## 웹 연동 (아직 없음)
+## 웹 연동
 
 - 패킷 리더는 **이 미터기 저장소에만** 둡니다. `aion2-legion-web`에 넣지 않습니다.
 - 길드 웹의 낫터기 ingest (`/api/admin/notmeter/combat`)를 미터기 업로드로 재사용하지 않습니다.
-- 전투가 끝나면 `DpsLog.encounter`에 `bit-legion-encounter-v1` JSON 스냅샷이 붙습니다. 다음 단계에서 `UploadAddonImpl`이 이 JSON만 POST 하면 됩니다.
+- **알림·일정 참여**는 웹 `/meter-link` 일회용 코드 → 미터기 설정의 기기 토큰으로 붙습니다. 오버레이가 30초마다 `GET /api/meter/inbox`를 보고, 참가/취소/공지 읽음/아그로는 `POST /api/meter/actions`입니다.
+- 기기 토큰은 `%APPDATA%\Aion2DpsMeter\settings.properties`의 `guildDeviceToken`에 저장됩니다. 웹에서 기기를 해제하면 오버레이는 401을 받습니다.
+- 전투가 끝나면 `DpsLog.encounter`에 `bit-legion-encounter-v1` JSON 스냅샷이 붙습니다. 전투기록 업로드 API는 아직 없습니다. 다음 단계에서 `UploadAddonImpl`이 이 JSON만 POST 하면 됩니다.
 - 스냅샷 플레이어에 `dps`와 실험 `nDps`가 같이 들어 갑니다. 웹 랭킹을 붙일 때 어떤 지표를 쓸지 웹 API에서 고르면 됩니다.
-- 히스토리 패널의 업로드 버튼은 웹 API가 생긴 뒤에 켭니다.
+- 히스토리 패널의 업로드 버튼은 웹 업로드 API가 생긴 뒤에 켭니다.
 
 ## 이 환경에서 못 하는 일
 

@@ -5,6 +5,7 @@ import { SettingsPanel } from "./SettingsPanel.tsx";
 import { UpdatePanel, UPDATE_PANEL_DOT_CLS, UPDATE_PANEL_HEADER_TITLE } from "./UpdatePanel";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { HistoryPanel } from "./HistoryPanel";
+import { GuildPanel } from "./GuildPanel";
 import { useDraggablePanel } from "@/hooks/drag/useDraggablePanel";
 import { useSidePanelResize } from "@/hooks/resize/useSidePanelResize";
 import { CircleX } from "lucide-react";
@@ -41,6 +42,7 @@ const SIDE_SHELL = {
   details: `${SIDE_OUTER} py-4 px-7 text-white font-bold`,
   settings: `${SIDE_OUTER} pl-5 pr-3  pb-6 font-bold rounded-lg`,
   history: `${SIDE_OUTER} text-white font-bold rounded-lg p-4`,
+  guild: `${SIDE_OUTER} text-white font-bold rounded-lg p-4`,
   update: `${SIDE_OUTER} font-semibold`,
 } as const;
 
@@ -199,7 +201,9 @@ const SidePanelComponent = ({
                 ? "설정"
                 : currentType === "history"
                   ? "전투 기록"
-                  : null}
+                  : currentType === "guild"
+                    ? "길드"
+                    : null}
           </span>
         )}
         <div
@@ -278,6 +282,11 @@ const SidePanelComponent = ({
             />
           </div>
         )}
+        {currentType === "guild" && (
+          <div className={SIDE_SHELL.guild}>
+            <GuildPanel />
+          </div>
+        )}
       </div>
       {currentType !== "update" && <ResizeHandle onMouseDown={onMouseDownCorner}></ResizeHandle>}
     </div>
@@ -324,6 +333,10 @@ const areSidePanelPropsEqual = (prev: SidePanelProps, next: SidePanelProps) => {
       prev.formatBattleTime === next.formatBattleTime &&
       prev.onSelectHistory === next.onSelectHistory
     );
+  }
+
+  if (next.type === "guild") {
+    return true;
   }
 
   return true;

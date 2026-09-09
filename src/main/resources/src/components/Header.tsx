@@ -8,8 +8,10 @@ import {
   Bug,
   UserRoundPlus,
   Grip,
+  Bell,
 } from "lucide-react";
 import { useJoinRequestStore } from "@/stores/useJoinRequestStore";
+import { useGuildStore } from "@/stores/useGuildStore";
 
 interface Props {
   setSettings: (value: PanelType) => void;
@@ -26,6 +28,7 @@ export const Header = memo(
     const isDebugMode = useSettingsStore((s) => s.isDebugMode);
     const dpsMetric = useSettingsStore((s) => s.dpsMetric);
     const requestCount = useJoinRequestStore((s) => s.requests.length);
+    const guildBadge = useGuildStore((s) => s.inbox?.badgeCount ?? 0);
     const isOpen = useJoinRequestStore((s) => s.isOpen);
     const setOpen = useJoinRequestStore((s) => s.setOpen);
     const exitApp = () => {
@@ -87,6 +90,19 @@ export const Header = memo(
             <Settings className="size-4.5" />
           </Button>
 
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSettings("guild")}
+            className="rounded-full relative hover:bg-amber-500/15 hover:text-amber-200">
+            <Bell className="size-4.5" />
+            {guildBadge > 0 && (
+              <span
+                className={`${className} absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-[10px] text-[#0b0d17] flex items-center justify-center font-bold`}>
+                {guildBadge > 9 ? "9+" : guildBadge}
+              </span>
+            )}
+          </Button>
           <Button
             variant="ghost"
             size="icon"
