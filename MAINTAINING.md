@@ -46,6 +46,11 @@ cp json/* src/main/resources/json/
 
 원본 표기는 `src/main/resources/json/NOTICE.md`를 유지합니다. (hate-jp / HappNJLand, MIT)
 
+공개 카탈로그를 그대로 덮어쓰지 않습니다.
+
+- HappNJLand `resources/` 마지막 갱신은 2026-04-08. 우리 1.7.5 MSI(6월)보다 오래됐고, 한글 이름이 아닌 테스트/봇 엔티티가 많습니다. 7월 이후 던전·성역 보스가 없습니다.
+- 지금 유지되는 쪽은 [Aion2Cal](https://github.com/zerosial/Aion2Tools) MSI입니다. 1.9.14(2026-07-01)에서 무스펠 보스 ID `2301089`/`2301090`만 추가로 가져왔습니다. 저장소에는 JSON이 없고 MSI 안에만 있습니다.
+
 파티 신청 패널 스킬 목록은 `src/main/resources/src/constants/codes.ts` 입니다. 업스트림은 이 파일을 gitignore에 두었지만, 이 포크는 프론트 빌드가 되도록 커밋합니다.
 
 ## 웹 연동 (아직 없음)
