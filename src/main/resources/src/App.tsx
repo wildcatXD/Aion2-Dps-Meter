@@ -187,7 +187,7 @@ export default function App() {
     };
   }, []);
   const meterClass = cn(
-    "rounded-lg relative transition-color duration-300 text-[rgba(215,215,215)] py-2 px-3",
+    "rounded-lg relative transition-color duration-300 text-[#e0e0e0] py-2 px-3 border border-amber-500/15",
     isMinimal ? "bg-transparent group-hover/app:bg-(--meter-bg)" : "bg-(--meter-bg)",
   );
 
@@ -217,9 +217,9 @@ export default function App() {
           top: uiY,
 
           width: "fit-content",
-          "--meter-bg": `rgba(12,22,40,${meterOpacity})`,
-          "--panel-bg": `rgba(12,22,40,${panelOpacity})`,
-          "--join-panel-bg": `rgba(12,22,40,${joinPanelOpacity})`,
+          "--meter-bg": `rgba(11,13,23,${meterOpacity})`,
+          "--panel-bg": `rgba(18,18,28,${panelOpacity})`,
+          "--join-panel-bg": `rgba(18,18,28,${joinPanelOpacity})`,
           visibility: isLoaded ? "visible" : "hidden",
         } as React.CSSProperties
       }
@@ -278,7 +278,7 @@ export default function App() {
           <div
             onMouseDown={onMouseDown}
             className="resizeHandle absolute top-1/2 -translate-y-1/2 -right-3 w-1 h-16 cursor-e-resize flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity group">
-            <div className="w-1 h-10 rounded-full bg-white  transition-colors" />
+            <div className="w-1 h-10 rounded-full bg-amber-400/70  transition-colors" />
           </div>
         )}
         {isClickThrough && (

@@ -76,10 +76,10 @@ const TimerBar = ({ arrivedAt, now }: { arrivedAt: number; now: number }) => {
   const pct = (remaining / TOTAL_SEC) * 100;
   const color =
     pct > 50
-      ? "linear-gradient(to right, #55c42a, #3a9e20)"
+      ? "linear-gradient(to right, #fbbf24, #d97706)"
       : pct > 25
-        ? "linear-gradient(to right, #e6a817, #c98c0f)"
-        : "linear-gradient(to right, #e05252, #b83c3c)";
+        ? "linear-gradient(to right, #fb923c, #c2410c)"
+        : "linear-gradient(to right, #f87171, #be123c)";
 
   return (
     <div className="flex items-center gap-2">
@@ -175,7 +175,7 @@ export const JoinRequestPanel = memo(() => {
   };
 
   const rootClass = cn(
-    "text-[rgba(215,215,215)] rounded-lg font-bold",
+    "text-[#e0e0e0] rounded-lg font-bold border border-amber-500/15",
     "transition-opacity duration-200 ease-in-out",
     "bg-(--join-panel-bg) ",
     visible ? "opacity-100" : "opacity-0 pointer-events-none",
@@ -192,7 +192,7 @@ export const JoinRequestPanel = memo(() => {
       onMouseDown={onMouseDownPanel}>
       <div>
         <div
-          className={`${headerClass} flex items-center justify-between px-3 py-1.5 border-b border-white/10 rounded-t-lg`}>
+          className={`${headerClass} flex items-center justify-between px-3 py-1.5 border-b border-amber-500/15 rounded-t-lg`}>
           <div className="flex items-center h-8">
             <span className={`mr-2 pl-2 flex-1 text-sm`}>파티 신청</span>
             <span className={`text-sm text-center`}>{requests.length}건</span>
@@ -275,7 +275,7 @@ export const JoinRequestPanel = memo(() => {
                           {getServerLabel(r.server) ? `[${getServerLabel(r.server)}]` : ""}
                         </span>
                       </div>
-                      <span className="text-shadow-meter text-sm tabular-nums text-[#10f1e2] shrink-0">
+                      <span className="text-shadow-meter text-sm tabular-nums text-amber-300 shrink-0">
                         {`${(r.power / 1000).toFixed(1)}k`}
                       </span>
                     </div>

@@ -41,6 +41,8 @@ data class EncounterPlayerSnapshot(
     val combatPower: Int = 0,
     val damage: Double = 0.0,
     val dps: Double = 0.0,
+    val nDamage: Double = 0.0,
+    val nDps: Double = 0.0,
     val sharePercent: Double = 0.0,
     val skills: List<EncounterSkillSnapshot> = emptyList(),
     val buffs: List<EncounterBuffSnapshot> = emptyList(),

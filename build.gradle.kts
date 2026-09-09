@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.tbread"
-version = "1.8.0"
+version = "1.8.1"
 
 val frontendDir = layout.projectDirectory.dir("src/main/resources")
 val frontendBuildInputs = fileTree(frontendDir) {
@@ -93,9 +93,15 @@ dependencies {
 
     implementation("at.yawk.lz4:lz4-java:1.10.4")
 
+    testImplementation(kotlin("test"))
+
     if (file("addon").exists()) {
         runtimeOnly(project(":addon"))
     }
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 compose.desktop {

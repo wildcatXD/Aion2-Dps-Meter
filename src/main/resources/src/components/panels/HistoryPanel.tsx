@@ -61,7 +61,7 @@ export const HistoryPanel = ({ formatBattleTime, onSelectHistory }: Props) => {
               className="flex items-center gap-2">
               <div
                 onClick={() => onSelectHistory(item.idx, item.raw)}
-                className="relative w-full px-3 rounded-lg overflow-hidden bg-black/30 cursor-pointer hover:brightness-125 transition-all duration-200"
+                className="relative w-full px-3 rounded-lg overflow-hidden bg-black/40 cursor-pointer hover:brightness-125 transition-all duration-200"
                 style={{ minHeight: 52 }}>
                 <div
                   className="absolute inset-0 origin-left"

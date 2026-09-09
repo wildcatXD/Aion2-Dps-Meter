@@ -29,7 +29,9 @@ const isPlayerSame = (a: Player, b: Player) =>
   a.job === b.job &&
   a.server === b.server &&
   a.dps === b.dps &&
+  a.nDps === b.nDps &&
   a.amount === b.amount &&
+  a.nAmount === b.nAmount &&
   a.damageContribution === b.damageContribution &&
   a.entireContribution === b.entireContribution &&
   a.isUser === b.isUser;

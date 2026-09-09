@@ -11,13 +11,13 @@ export const CombatTimer = ({ isInCombat, combatTime }: Props) => {
       <div
         className="w-2 h-2 rounded-full transition-colors duration-300"
         style={{
-          background: isInCombat ? "#55c42a" : combatTimeColor,
-          boxShadow: isInCombat ? "0 0 6px #55c42a" : "none",
+          background: isInCombat ? "#fbbf24" : combatTimeColor,
+          boxShadow: isInCombat ? "0 0 6px #fbbf24" : "none",
         }}
       />
       <span
         className="text-xs font-bold"
-        style={{ color: isInCombat ? "#55c42a" : combatTimeColor }}>
+        style={{ color: isInCombat ? "#fbbf24" : combatTimeColor }}>
         {isInCombat ? "전투 중" : "대기 중"}
       </span>
       <span

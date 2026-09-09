@@ -14,8 +14,8 @@ interface Props {
 }
 
 export const UPDATE_PANEL_DOT_CLS: Record<DownloadState["status"], string> = {
-  idle: "bg-purple-400 shadow-[0_0_6px_rgba(167,139,250,0.55)]",
-  downloading: "bg-purple-400 shadow-[0_0_6px_rgba(167,139,250,0.55)] animate-pulse",
+  idle: "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.55)]",
+  downloading: "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.55)] animate-pulse",
   complete: "bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.55)]",
   error: "bg-red-400 shadow-[0_0_5px_rgba(248,113,113,0.5)]",
 };
@@ -84,7 +84,7 @@ export const UpdatePanel = ({
       style={{ opacity: visible ? 1 : 0 }}>
       {status === "idle" && checkStatus === "checking" && (
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-4 py-10">
-          <div className="w-4 h-4 rounded-full border-2 border-purple-400 border-t-transparent animate-spin" />
+          <div className="w-4 h-4 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
           <p className="text-sm text-white/40">버전 확인 중...</p>
         </div>
       )}
@@ -155,7 +155,7 @@ export const UpdatePanel = ({
             </Button>
             <Button
               onClick={onUpdate}
-              className="bg-purple-600 hover:bg-purple-700 transition-colors p-4 w-20 flex-1">
+              className="bg-amber-500 hover:bg-amber-400 text-[#0b0d17] transition-colors p-4 w-20 flex-1">
               업데이트
             </Button>
           </div>
@@ -175,11 +175,11 @@ export const UpdatePanel = ({
           <div className={CLS.footerBarCol}>
             <div className="flex justify-between items-center text-sm">
               <p className="text-white/40">다운로드 중..</p>
-              <span className="text-purple-400 tabular-nums">{downloadState.percent}%</span>
+              <span className="text-amber-400 tabular-nums">{downloadState.percent}%</span>
             </div>
             <div className="h-1.5 rounded-full bg-white/[0.07] overflow-hidden">
               <div
-                className="h-full rounded-full bg-linear-to-r from-violet-600 to-purple-400
+                className="h-full rounded-full bg-linear-to-r from-amber-600 to-amber-400
                            transition-[width] duration-300 ease-out"
                 style={{ width: `${downloadState.percent}%` }}
               />

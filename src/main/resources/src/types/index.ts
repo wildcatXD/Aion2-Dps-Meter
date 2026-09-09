@@ -20,7 +20,9 @@ export interface Player {
   name: string;
   job: string;
   dps: number;
+  nDps: number;
   amount: number;
+  nAmount: number;
   damageContribution: number;
   entireContribution: number;
   isUser: boolean;

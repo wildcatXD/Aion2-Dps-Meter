@@ -66,6 +66,11 @@ export const DetailsPanel = ({
       <div className="grid grid-cols-4 gap-2 py-3 shrink-0">
         {[
           { label: "누적 피해량", value: details.totalDmg.toLocaleString() },
+          { label: "rDPS", value: `${player.dps.toLocaleString()}/초` },
+          {
+            label: "nDPS (실험)",
+            value: `${(player.nDps || player.dps).toLocaleString()} n/초`,
+          },
           {
             label: "피해량 기여도",
             value:

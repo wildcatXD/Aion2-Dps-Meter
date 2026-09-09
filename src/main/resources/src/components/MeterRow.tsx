@@ -9,6 +9,7 @@ interface Props {
   name: string;
   job?: string;
   dps: number;
+  nDps: number;
   amount: number;
   contribution: number;
   entireContribution: number;
@@ -18,7 +19,7 @@ interface Props {
   topDps: number;
   rowHeight: number;
   server: number;
-  // power: number;
+  metric: "rdps" | "ndps";
 }
 
 const makeGradient = (from: string, to: string) => `linear-gradient(to right, ${from}, ${to})`;
@@ -29,6 +30,7 @@ export const MeterRow = memo(
     name,
     job,
     dps,
+    nDps,
     server,
     contribution,
     entireContribution,
@@ -37,7 +39,7 @@ export const MeterRow = memo(
     topDps,
     amount,
     rowHeight,
-    // power,
+    metric,
   }: Props) => {
     const { displayMode, nameDisplay, theme, contributionMode } = useSettingsStore(
       useShallow((s) => ({
@@ -70,7 +72,9 @@ export const MeterRow = memo(
     const iconSize = Math.round(rowHeight * 0.7);
     const fontSize = `${Math.max(10, Math.floor(rowHeight * 0.4))}px`;
 
-    const ratio = Math.max(0, Math.min(1, dps / topDps));
+    const shownDps = metric === "ndps" ? nDps || dps : dps;
+    const dpsSuffix = metric === "ndps" ? " n/초" : "/초";
+    const ratio = Math.max(0, Math.min(1, shownDps / topDps));
     const iconSrc = getJobIconSrc(job);
     const fillGradient = isUser
       ? gradients.user
@@ -87,7 +91,7 @@ export const MeterRow = memo(
       const pct = contributionMode === "entireContribution" ? entireContribution : contribution;
       const compactAmount = formatAmount(amount);
       const fullAmount = amount.toLocaleString();
-      const dpsText = `${dps.toLocaleString()}/초`;
+      const dpsText = `${shownDps.toLocaleString()}${dpsSuffix}`;
       const pctText = `${pct.toFixed(1)}%`;
 
       switch (displayMode) {
@@ -125,7 +129,8 @@ export const MeterRow = memo(
       contribution,
       contributionMode,
       displayMode,
-      dps,
+      metric,
+      shownDps,
       entireContribution,
       theme.meterStatAmount,
       theme.meterStatDps,
@@ -147,7 +152,7 @@ export const MeterRow = memo(
       <div
         onClick={() => onSelect(id)}
         style={{ height: rowHeight }}
-        className={`w-full  relative px-2 rounded-sm overflow-hidden bg-black/30 cursor-pointer`}>
+        className={`w-full  relative px-2 rounded-sm overflow-hidden bg-black/40 cursor-pointer`}>
         <div
           className="absolute inset-0 origin-left transition-transform duration-150 ease-out"
           style={{
@@ -202,6 +207,7 @@ export const MeterRow = memo(
   (prev, next) => {
     return (
       prev.dps === next.dps &&
+      prev.nDps === next.nDps &&
       prev.amount === next.amount &&
       prev.contribution === next.contribution &&
       prev.entireContribution === next.entireContribution &&
@@ -211,7 +217,8 @@ export const MeterRow = memo(
       prev.topDps === next.topDps &&
       prev.name === next.name &&
       prev.job === next.job &&
-      prev.rowHeight === next.rowHeight
+      prev.rowHeight === next.rowHeight &&
+      prev.metric === next.metric
     );
   },
 );

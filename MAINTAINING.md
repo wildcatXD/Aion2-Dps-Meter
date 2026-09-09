@@ -58,6 +58,7 @@ cp json/* src/main/resources/json/
 - 패킷 리더는 **이 미터기 저장소에만** 둡니다. `aion2-legion-web`에 넣지 않습니다.
 - 길드 웹의 낫터기 ingest (`/api/admin/notmeter/combat`)를 미터기 업로드로 재사용하지 않습니다.
 - 전투가 끝나면 `DpsLog.encounter`에 `bit-legion-encounter-v1` JSON 스냅샷이 붙습니다. 다음 단계에서 `UploadAddonImpl`이 이 JSON만 POST 하면 됩니다.
+- 스냅샷 플레이어에 `dps`와 실험 `nDps`가 같이 들어 갑니다. 웹 랭킹을 붙일 때 어떤 지표를 쓸지 웹 API에서 고르면 됩니다.
 - 히스토리 패널의 업로드 버튼은 웹 API가 생긴 뒤에 켭니다.
 
 ## 이 환경에서 못 하는 일

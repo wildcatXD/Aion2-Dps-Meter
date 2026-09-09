@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { RotateCcw } from "lucide-react";
 import type {
   DisplayMode,
+  DpsMetric,
   FontFamily,
   HeaderPosition,
   NameDisplay,
@@ -37,6 +38,15 @@ interface Props {
   onCheckUpdate?: () => void;
   registerHeaderClose?: (handler: (() => void) | null) => void;
 }
+
+const DPS_METRICS: { value: DpsMetric; label: string; description: string }[] = [
+  { value: "rdps", label: "실딜 rDPS", description: "실제로 넣은 피해 / 전투시간" },
+  {
+    value: "ndps",
+    label: "개인 nDPS (실험)",
+    description: "파티 질풍·격앙·노련한 반격·대지의 은총을 근사 제거",
+  },
+];
 
 const DISPLAY_MODES: { value: DisplayMode; label: string; description: string }[] = [
   { value: "dps_percent", label: "DPS / 기여도", description: "45,000/초 (35.5%)" },
@@ -108,6 +118,7 @@ export const SettingsPanel = ({
   const {
     hideHotkey,
     displayMode,
+    dpsMetric,
     targetInfoDisplayMode,
     nameDisplay,
     fontFamily,
@@ -127,6 +138,7 @@ export const SettingsPanel = ({
     useShallow((s) => ({
       hideHotkey: s.hideHotkey,
       displayMode: s.displayMode,
+      dpsMetric: s.dpsMetric,
       targetInfoDisplayMode: s.targetInfoDisplayMode,
       nameDisplay: s.nameDisplay,
       fontFamily: s.fontFamily,
@@ -148,6 +160,7 @@ export const SettingsPanel = ({
   const {
     setHideHotkey,
     setDisplayMode,
+    setDpsMetric,
     setTargetInfoDisplayMode,
     setNameDisplay,
     setFontFamily,
@@ -184,6 +197,7 @@ export const SettingsPanel = ({
   const [snapshot] = useState(() => ({
     hideHotkey,
     displayMode,
+    dpsMetric,
     targetInfoDisplayMode,
     headerPosition,
     nameDisplay,
@@ -211,6 +225,7 @@ export const SettingsPanel = ({
 
   const handleCancel = useCallback(() => {
     setDisplayMode(snapshot.displayMode);
+    setDpsMetric(snapshot.dpsMetric);
     setTargetInfoDisplayMode(snapshot.targetInfoDisplayMode);
     setNameDisplay(snapshot.nameDisplay);
     setFontFamily(snapshot.fontFamily);
@@ -232,6 +247,7 @@ export const SettingsPanel = ({
     resetHide,
     setContributionMode,
     setDisplayMode,
+    setDpsMetric,
     setFontFamily,
     setHeaderPosition,
     setIsMinimal,
@@ -351,7 +367,7 @@ export const SettingsPanel = ({
             <Switch
               checked={isAutoHide}
               onCheckedChange={toggleAutoHide}
-              className="data-[state=checked]:bg-purple-500"
+              className="data-[state=checked]:bg-amber-500"
             />
           </SettingsRow>
           <SettingsRow
@@ -380,7 +396,7 @@ export const SettingsPanel = ({
             <Switch
               checked={isClickThrough}
               disabled
-              className="data-[state=checked]:bg-purple-500"
+              className="data-[state=checked]:bg-amber-500"
             />
           </SettingsRow>
 
@@ -408,7 +424,7 @@ export const SettingsPanel = ({
             <Switch
               checked={isMinimal}
               onCheckedChange={(v) => setIsMinimal(v)}
-              className="data-[state=checked]:bg-purple-500"
+              className="data-[state=checked]:bg-amber-500"
             />
           </SettingsRow>
 
@@ -416,7 +432,7 @@ export const SettingsPanel = ({
             <Switch
               checked={showCombatTimerInMinimal}
               onCheckedChange={(v) => setShowCombatTimerInMinimal(v)}
-              className="data-[state=checked]:bg-purple-500 disabled:opacity-30"
+              className="data-[state=checked]:bg-amber-500 disabled:opacity-30"
             />
           </SettingsRow>
 
@@ -424,7 +440,7 @@ export const SettingsPanel = ({
             <Switch
               checked={showTargetInfoInMinimal}
               onCheckedChange={(v) => setShowTargetInfoInMinimal(v)}
-              className="data-[state=checked]:bg-purple-500 disabled:opacity-30"
+              className="data-[state=checked]:bg-amber-500 disabled:opacity-30"
             />
           </SettingsRow>
         </SettingsItem>
@@ -456,6 +472,30 @@ export const SettingsPanel = ({
                   className="px-4 py-2">
                   보스 체력 기여도 (절대)
                 </SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingsRow>
+
+          <SettingsRow
+            title="딜 지표"
+            description="nDPS는 파티 시너지만 근사 제거합니다. 본인 버프·개인 PvE 증폭은 낫터기와 다를 수 있습니다."
+            align="center"
+            rightClassName="w-44">
+            <Select
+              value={dpsMetric}
+              onValueChange={(v) => setDpsMetric(v as DpsMetric)}>
+              <SelectTrigger className="text-xs w-44 bg-white/5 border-white/10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DPS_METRICS.map(({ value, label }) => (
+                  <SelectItem
+                    key={value}
+                    value={value}
+                    className="px-4 py-2">
+                    {label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </SettingsRow>
@@ -677,9 +717,9 @@ export const SettingsPanel = ({
             variant="ghost"
             size="sm"
             onClick={resetTheme}
-            className="w-full opacity-50 hover:opacity-100 hover:bg-transition transition-opacity flex items-center gap-2 text-xs">
+            className="w-full opacity-50 hover:opacity-100 hover:bg-amber-500/10 transition-opacity flex items-center gap-2 text-xs">
             <RotateCcw className="w-3 h-3" />
-            테마 초기화
+            빛 레기온 테마로 초기화
           </Button>
           <Button
             variant="ghost"
@@ -716,7 +756,7 @@ export const SettingsPanel = ({
         </Button>
         <Button
           onClick={handleSave}
-          className="bg-purple-600 hover:bg-purple-700 transition-colors p-4 w-20">
+          className="bg-amber-500 hover:bg-amber-400 text-[#0b0d17] transition-colors p-4 w-20">
           저장
         </Button>
       </div>

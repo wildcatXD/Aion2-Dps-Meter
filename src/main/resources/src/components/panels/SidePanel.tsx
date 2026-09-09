@@ -166,7 +166,7 @@ const SidePanelComponent = ({
   };
 
   const rootClass = cn(
-    "text-[rgba(215,215,215)] rounded-lg font-bold",
+    "text-[#e0e0e0] rounded-lg font-bold border border-amber-500/15",
     "transition-opacity duration-200 ease-in-out",
     "bg-(--panel-bg)",
     visible ? "opacity-100" : "opacity-0 pointer-events-none",
@@ -181,7 +181,7 @@ const SidePanelComponent = ({
       }}
       className={cn(rootClass, "fixed left-0 top-0  flex flex-col overflow-hidden ")}
       onMouseDown={onMouseDownPanel}>
-      <div className="flex items-center shrink-0 pl-5 px-3 py-1.5 border-b border-white/10 gap-2">
+      <div className="flex items-center shrink-0 pl-5 px-3 py-1.5 border-b border-amber-500/15 gap-2">
         {currentType === "update" ? (
           <>
             <div
@@ -192,7 +192,7 @@ const SidePanelComponent = ({
             </span>
           </>
         ) : (
-          <span className="flex-1  text-sm truncate">
+          <span className="flex-1  text-sm truncate text-amber-200/90">
             {currentType === "details"
               ? detailsTitle
               : currentType === "settings"
