@@ -38,6 +38,11 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
     private val logger = LoggerFactory.getLogger(BrowserApp::class.java)
 
+    // 기본 Json은 encodeDefaults=false라서 0.0/0 같은 기본값 필드가 통째로 빠집니다.
+    // 오버레이(TS)는 그 필드를 Number(undefined)로 읽어 NaN이 되므로, 여기서는 항상 필드를
+    // 내려보내도록 별도 인스턴스를 씁니다 (예: entireContribution이 0일 때 "NaN%"로 보이던 문제).
+    private val overlayJson = Json { encodeDefaults = true }
+
     private lateinit var engine: WebEngine
     private var trayIcon: TrayIcon? = null
 
@@ -129,39 +134,39 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
         fun getBattleDetail(uid: Int): String {
-            return Json.encodeToString(dpsCalculator.battleDetails(dpsCalculator.getLiveReport(), uid))
+            return overlayJson.encodeToString(dpsCalculator.battleDetails(dpsCalculator.getLiveReport(), uid))
         }
 
         fun getBattleDetailFromList(idx: Int, uid: Int): String {
-            return Json.encodeToString(dpsCalculator.battleDetails(DataManager.battleLog(idx)?.report, uid))
+            return overlayJson.encodeToString(dpsCalculator.battleDetails(DataManager.battleLog(idx)?.report, uid))
         }
 
         fun getBattleList(): String {
-            return Json.encodeToString(DataManager.recentBattleList())
+            return overlayJson.encodeToString(DataManager.recentBattleList())
         }
 
         fun getLiveBuffOperatingRate(uid: Int): String {
             val report = dpsCalculator.getLiveReport()
             val end = if (report.battleEnd == 0L) System.currentTimeMillis() else report.battleEnd
-            return Json.encodeToString(dpsCalculator.getBuffOperatingRate(uid,report.battleStart,end))
+            return overlayJson.encodeToString(dpsCalculator.getBuffOperatingRate(uid,report.battleStart,end))
         }
 
         fun getBuffOperatingRate(idx: Int, uid: Int): String {
             val report = DataManager.battleLog(idx)?.report ?: return ""
-            return Json.encodeToString(dpsCalculator.getBuffOperatingRate(uid,report.battleStart,report.battleEnd))
+            return overlayJson.encodeToString(dpsCalculator.getBuffOperatingRate(uid,report.battleStart,report.battleEnd))
         }
 
         fun getLiveBossBuffOperatingRate(): String {
             val report = dpsCalculator.getLiveReport()
             val end = if (report.battleEnd == 0L) System.currentTimeMillis() else report.battleEnd
             val targetId = report.target?.id ?: return ""
-            return Json.encodeToString(dpsCalculator.getBuffOperatingRate(targetId,report.battleStart,end))
+            return overlayJson.encodeToString(dpsCalculator.getBuffOperatingRate(targetId,report.battleStart,end))
         }
 
         fun getBossBuffOperatingRate(idx: Int): String {
             val report = DataManager.battleLog(idx)?.report ?: return ""
             val targetId = report.target?.id ?: return ""
-            return Json.encodeToString(dpsCalculator.getBuffOperatingRate(targetId,report.battleStart,report.battleEnd))
+            return overlayJson.encodeToString(dpsCalculator.getBuffOperatingRate(targetId,report.battleStart,report.battleEnd))
         }
 
         fun upload(idx: Int): Boolean {
@@ -232,7 +237,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
         fun pushJoinRequest(data: JoinRequestUser) {
-            engine.executeScript("onJoinRequest(${Json.encodeToString(data)})")
+            engine.executeScript("onJoinRequest(${overlayJson.encodeToString(data)})")
         }
 
         fun pushJoinRequestRemove(id: Int) {
@@ -254,7 +259,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     private var dpsData: DpsReport = dpsCalculator.getDps()
 
     @Volatile
-    private var cachedDpsJson: String = Json.encodeToString(dpsData)
+    private var cachedDpsJson: String = overlayJson.encodeToString(dpsData)
 
     @Volatile
     private var isVisible = true
@@ -352,7 +357,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             while (true) {
                 kotlinx.coroutines.delay(500)
                 val data = dpsCalculator.getDps()
-                cachedDpsJson = Json.encodeToString(data)
+                cachedDpsJson = overlayJson.encodeToString(data)
                 dpsData = data
             }
         }

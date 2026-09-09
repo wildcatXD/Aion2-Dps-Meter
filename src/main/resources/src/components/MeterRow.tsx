@@ -88,7 +88,8 @@ export const MeterRow = memo(
       const amountColor = theme.meterStatAmount;
       const dpsColor = theme.meterStatDps;
       const percentColor = theme.meterStatPercent;
-      const pct = contributionMode === "entireContribution" ? entireContribution : contribution;
+      const pctRaw = contributionMode === "entireContribution" ? entireContribution : contribution;
+      const pct = Number.isFinite(pctRaw) ? pctRaw : 0;
       const compactAmount = formatAmount(amount);
       const fullAmount = amount.toLocaleString();
       const dpsText = `${shownDps.toLocaleString()}${dpsSuffix}`;
