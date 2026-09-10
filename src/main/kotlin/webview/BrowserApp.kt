@@ -179,10 +179,16 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
         fun startUpdate(msiUrl: String) {
+            // 재실행할 때 쓸 실행 파일 경로를 미리 잡아둡니다. 설치가 끝난 뒤에는 msiexec가
+            // 같은 경로에 파일을 덮어쓰므로, 지금 떠 있는 이 프로세스의 실행 파일 경로를 그대로
+            // 다시 실행하면 됩니다.
+            val currentExePath = ProcessHandle.current().info().command().orElse(null)
+
             Thread {
                 try {
                     val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "bit-dps-meter").also { it.mkdirs() }
                     val msiFile = java.io.File(tempDir, "bit-dps-meter-update.msi")
+                    val logFile = java.io.File(tempDir, "install.log")
 
                     val connection = java.net.URI(msiUrl).toURL().openConnection() as java.net.HttpURLConnection
                     connection.connect()
@@ -207,9 +213,37 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                     }
 
                     Platform.runLater { engine.executeScript("onDownloadComplete()") }
+                    Platform.runLater { engine.executeScript("onInstallStarting()") }
 
-                    // 설치 프로그램을 바로 실행합니다. 미터기가 계속 실행 중이면 실행 파일이
-                    // 잠겨 있어 설치가 막힐 수 있으므로, 설치 마법사를 띄운 뒤 앱을 스스로 종료합니다.
+                    // 조용히(무인) 설치합니다. 미터기가 이미 관리자 권한으로 실행 중이라 msiexec도
+                    // 같은 권한을 물려받아 UAC 창이 따로 뜨지 않습니다. 설치가 끝날 때까지 기다린
+                    // 뒤, 성공하면 새로 설치된 실행 파일을 자동으로 다시 실행하고 지금 프로세스는
+                    // 종료합니다 — 설치 마법사의 다음/설치 버튼을 누르는 등 별도 조작이 필요 없습니다.
+                    val installProcess = ProcessBuilder(
+                        "msiexec", "/i", msiFile.absolutePath,
+                        "/quiet", "/norestart",
+                        "/l*v", logFile.absolutePath,
+                    ).start()
+                    val exitCode = installProcess.waitFor()
+
+                    if (exitCode == 0) {
+                        if (currentExePath != null && java.io.File(currentExePath).exists()) {
+                            try {
+                                Runtime.getRuntime().exec(arrayOf(currentExePath))
+                            } catch (e: Exception) {
+                                logger.error("업데이트 후 재실행 실패, 수동으로 다시 실행해야 합니다", e)
+                            }
+                        } else {
+                            logger.warn("실행 파일 경로를 찾지 못해 자동 재실행을 건너뜁니다: $currentExePath")
+                        }
+                        Thread.sleep(500)
+                        Platform.exit()
+                        exitProcess(0)
+                    }
+
+                    // 무인 설치가 실패하면(exitCode != 0) 설치 마법사를 직접 띄워서 사용자가
+                    // 눈으로 보고 마무리할 수 있게 합니다. 로그는 install.log에 남아있습니다.
+                    logger.error("무인 설치 실패 (exitCode=$exitCode), 설치 마법사를 직접 엽니다: ${logFile.absolutePath}")
                     val installerLaunched = try {
                         Runtime.getRuntime().exec(arrayOf("msiexec", "/i", msiFile.absolutePath))
                         true
@@ -224,10 +258,11 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                     }
 
                     if (installerLaunched) {
-                        Platform.runLater { engine.executeScript("onInstallStarting()") }
                         Thread.sleep(1500)
                         Platform.exit()
                         exitProcess(0)
+                    } else {
+                        Platform.runLater { engine.executeScript("onDownloadError()") }
                     }
                 } catch (e: Exception) {
                     logger.error("업데이트 실패", e)
@@ -356,9 +391,16 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         CoroutineScope(Dispatchers.IO).launch {
             while (true) {
                 kotlinx.coroutines.delay(500)
-                val data = dpsCalculator.getDps()
-                cachedDpsJson = overlayJson.encodeToString(data)
-                dpsData = data
+                // 여기서 처리되지 않은 예외가 발생하면 이 while 루프(코루틴)가 그대로 죽어서,
+                // 그 이후로는 딜/본인 탐지를 포함한 모든 갱신이 영구히 멈춰버립니다.
+                // 한 번의 실패가 전체를 멈추지 않도록 방어적으로 감쌉니다.
+                try {
+                    val data = dpsCalculator.getDps()
+                    cachedDpsJson = overlayJson.encodeToString(data)
+                    dpsData = data
+                } catch (e: Exception) {
+                    logger.error("DPS 데이터 갱신 실패, 다음 주기에 재시도합니다", e)
+                }
             }
         }
 

@@ -205,9 +205,9 @@ export const UpdatePanel = ({
       {status === "installing" && (
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1.25 px-6 py-10">
           <div className="w-4 h-4 rounded-full border-2 border-green-400 border-t-transparent animate-spin mb-1" />
-          <p className="text-sm text-slate-200">설치 마법사를 실행했습니다</p>
-          <p className="text-sm text-white/45">잠시 후 미터기가 자동으로 종료됩니다.</p>
-          <p className="text-sm text-white/45">설치 창의 안내에 따라 진행해주세요.</p>
+          <p className="text-sm text-slate-200">설치를 진행하고 있습니다</p>
+          <p className="text-sm text-white/45">설치가 끝나면 미터기가 자동으로 재시작됩니다.</p>
+          <p className="text-sm text-white/45">따로 하실 일은 없습니다. 잠시만 기다려주세요.</p>
         </div>
       )}
 
