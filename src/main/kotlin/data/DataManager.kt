@@ -374,6 +374,10 @@ object DataManager {
         return userRepository.get(uid)
     }
 
+    fun usersMissingNickname(): List<User> {
+        return userRepository.all().filter { it.nickname.isNullOrBlank() }
+    }
+
     fun saveUser(uid: Int, user: User) {
         userRepository.save(uid, user)
     }

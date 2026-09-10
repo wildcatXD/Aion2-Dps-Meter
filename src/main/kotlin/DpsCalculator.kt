@@ -92,6 +92,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
                 if (user == null) {
                     user = User(actor, nickname = null)
                     DataManager.saveUser(user.id, user)
+                    logger.info("닉네임 없이 전투 참가자 등록 uid={}", actor)
                 }
                 cachedContributors.remove(user)
                 cachedContributors.add(user)
@@ -159,6 +160,10 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
                 cached.server = live.server
                 if (cached.job == null) cached.job = live.job
             }
+        }
+
+        if (DataManager.executorId() == 0 && report.contributors.size == 1) {
+            report.contributors.first().isExecutor = true
         }
 
         if (DataManager.isCurrentTargetDummy()) {

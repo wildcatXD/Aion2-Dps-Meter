@@ -116,10 +116,12 @@ export function parseCombatData(raw: unknown): {
     const entireContribution = Number.isFinite(entireContributionRaw) ? entireContributionRaw : 0;
     if (!Number.isFinite(dps)) continue;
 
+    const rawName = String(contributor.nickname ?? "").trim();
+    const looksLikeId = rawName === id;
+    const fallbackName = contributor.isExecutor === true ? "나" : id;
+    const displayName = rawName && !looksLikeId ? rawName : fallbackName;
     const serverLabel = getServerLabel(contributor.server);
-    const name = serverLabel
-      ? `${contributor.nickname || id}[${serverLabel}]`
-      : contributor.nickname || id;
+    const name = serverLabel ? `${displayName}[${serverLabel}]` : displayName;
 
     rows.push({
       id: Number(id) || 0,

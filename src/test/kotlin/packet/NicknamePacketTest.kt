@@ -36,6 +36,37 @@ class NicknamePacketTest {
         assertTrue(user?.isExecutor == false)
     }
 
+    @Test
+    fun ownNicknameLayoutOnUnknown36Opcode() {
+        val uid = 82001
+        val nick = "AltOpcode"
+        val packet = ownNicknamePacket(uid, nick, extraFlag = false)
+        packet[1] = 0x32
+        StreamProcessor().onPacketReceived(packet, 0L)
+        val user = DataManager.user(uid)
+        assertEquals(nick, user?.nickname)
+    }
+
+    @Test
+    fun harvestNicknameForKnownActorWithoutDedicatedOpcode() {
+        val uid = 82002
+        val nick = "HarvestMe"
+        DataManager.saveUser(uid, com.tbread.entity.User(uid, nickname = null))
+        val name = nick.toByteArray(Charsets.UTF_8)
+        val body = ArrayList<Byte>()
+        body += 0x40
+        body += 0x01
+        body += 0x02
+        body += varInt(uid)
+        body += 0x07
+        body += varInt(name.size)
+        body += name.toList()
+        body += 0xE9.toByte()
+        body += 0x03
+        StreamProcessor().onPacketReceived(body.toByteArray(), 0L)
+        assertEquals(nick, DataManager.user(uid)?.nickname)
+    }
+
     private fun ownNicknamePacket(uid: Int, nickname: String, extraFlag: Boolean): ByteArray {
         val name = nickname.toByteArray(Charsets.UTF_8)
         val body = ArrayList<Byte>()

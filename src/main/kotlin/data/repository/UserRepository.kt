@@ -28,6 +28,8 @@ class UserRepository {
         subStorage.remove("${user.nickname}:${user.server}")
     }
 
+    fun all(): Collection<User> = storage.values
+
     fun get(id: Int): User? {
         return storage[id]
     }

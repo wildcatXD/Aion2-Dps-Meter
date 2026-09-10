@@ -523,7 +523,8 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         EventQueue.invokeLater {
             try {
                 val tray = SystemTray.getSystemTray()
-                val iconUrl = javaClass.getResource("/src/assets/logo.png")
+                val iconUrl = javaClass.getResource("/tray-icon.png")
+                    ?: javaClass.getResource("/src/assets/logo.png")
                 val image = if (iconUrl != null) {
                     try {
                         ImageIO.read(iconUrl)
@@ -532,7 +533,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                         null
                     }
                 } else {
-                    logger.warn("트레이 아이콘 리소스를 찾지 못했습니다: /src/assets/logo.png")
+                    logger.warn("트레이 아이콘 리소스를 찾지 못했습니다: /tray-icon.png")
                     null
                 } ?: java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB)
 
