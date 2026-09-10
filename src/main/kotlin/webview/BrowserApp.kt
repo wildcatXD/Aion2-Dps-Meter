@@ -19,6 +19,7 @@ import javafx.scene.Scene
 import javafx.scene.paint.Color
 import javafx.scene.web.WebEngine
 import javafx.scene.web.WebView
+import javafx.stage.Screen
 import javafx.stage.Stage
 import javafx.stage.StageStyle
 import kotlinx.coroutines.CoroutineScope
@@ -299,7 +300,11 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
 
-        val scene = Scene(webView, 1920.0, 1080.0)
+        // 오버레이 창을 1920x1080으로 고정하면, 그보다 큰 해상도 모니터에서는 화면 오른쪽/아래
+        // 영역에 실제 투명 창이 존재하지 않아 미터기를 그쪽으로 옮길 수 없는 것처럼 보입니다.
+        // 실제 주 모니터 해상도에 맞춰 창을 만들어서 화면 전체에서 자유롭게 움직일 수 있게 합니다.
+        val screenBounds = Screen.getPrimary().bounds
+        val scene = Scene(webView, screenBounds.width, screenBounds.height)
         scene.fill = Color.TRANSPARENT
 
 
@@ -319,6 +324,8 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         stage.scene = scene
         stage.isAlwaysOnTop = true
         stage.title = "Bit Dps Overlay"
+        stage.x = screenBounds.minX
+        stage.y = screenBounds.minY
 
         stage.show()
         applyOverlayWindowStyle(stage.title)
