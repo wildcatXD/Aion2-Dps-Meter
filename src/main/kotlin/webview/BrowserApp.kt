@@ -5,6 +5,7 @@ import com.tbread.DpsCalculator
 import com.tbread.addon.UploadManager
 import com.tbread.config.HotkeyHandler
 import com.tbread.config.PropertyHandler
+import com.tbread.config.SilentUpdateScript
 import com.tbread.config.VersionConfig
 import com.tbread.data.DataManager
 import com.tbread.entity.DpsReport
@@ -226,18 +227,21 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                     Platform.runLater { engine.executeScript("onInstallStarting()") }
 
                     val exePath = currentExePath ?: ""
-                    scriptFile.writeText(buildUpdateScript())
+                    scriptFile.writeText(
+                        SilentUpdateScript.render(
+                            currentPid,
+                            msiFile.absolutePath,
+                            exePath,
+                            logFile.absolutePath,
+                        ),
+                    )
 
-                    // start "" 로 새 콘솔 없이 분리된 프로세스를 만듭니다. 지금 JVM이 종료돼도
-                    // 헬퍼가 같이 죽지 않고, 미터기 종료 → 무인 설치 → 재실행 순서로 이어갑니다.
-                    // 인자로 경로를 넘기는 이유는 스크립트 파일을 ASCII만 쓰게 하기 위함입니다.
+                    // start "" 로 새 콘솔 없이 분리된 프로세스를 만듭니다. 경로 인자는
+                    // start가 공백에서 쪼개므로 스크립트 파일 안에 적어 두고, 여기선
+                    // 스크립트만 실행합니다.
                     ProcessBuilder(
                         "cmd.exe", "/c", "start", "/min", "",
                         scriptFile.absolutePath,
-                        currentPid.toString(),
-                        msiFile.absolutePath,
-                        exePath,
-                        logFile.absolutePath,
                     ).start()
 
                     logger.info("업데이트 헬퍼를 실행했습니다. 미터기를 종료한 뒤 무인 설치가 진행됩니다: ${logFile.absolutePath}")
@@ -249,47 +253,6 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                     Platform.runLater { engine.executeScript("onDownloadError()") }
                 }
             }.start()
-        }
-
-        private fun buildUpdateScript(): String {
-            // cmd.exe 배치. 인자는 (1) 종료를 기다릴 PID (2) MSI 경로 (3) 재실행할 exe (4) 로그 경로.
-            // 무인 설치가 실패하면(파일 잠금이 아닌 다른 이유) 예전처럼 설치 마법사를 엽니다.
-            return """
-                @echo off
-                setlocal EnableExtensions
-                set "WAIT_PID=%~1"
-                set "MSI=%~2"
-                set "EXE=%~3"
-                set "LOG=%~4"
-                set "INSTALLDIR=%~dp3"
-                if "%INSTALLDIR:~-1%"=="\" set "INSTALLDIR=%INSTALLDIR:~0,-1%"
-
-                set /a N=0
-                :wait
-                if %N% GEQ 60 goto install
-                timeout /t 1 /nobreak >nul
-                set /a N+=1
-                tasklist /FI "PID eq %WAIT_PID%" | findstr /I /C:" %WAIT_PID% " >nul
-                if not errorlevel 1 goto wait
-
-                timeout /t 2 /nobreak >nul
-
-                :install
-                if "%INSTALLDIR%"=="" (
-                  msiexec /i "%MSI%" /quiet /norestart /l*v "%LOG%"
-                ) else (
-                  msiexec /i "%MSI%" /quiet /norestart ALLUSERS=1 INSTALLDIR="%INSTALLDIR%" /l*v "%LOG%"
-                )
-                if %ERRORLEVEL% EQU 0 goto relaunch
-                if %ERRORLEVEL% EQU 3010 goto relaunch
-
-                msiexec /i "%MSI%"
-                exit /b
-
-                :relaunch
-                if exist "%EXE%" start "" "%EXE%"
-                exit /b 0
-            """.trimIndent() + "\n"
         }
 
         fun pushJoinRequest(data: JoinRequestUser) {
