@@ -127,12 +127,17 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         )
 
         if (currentTarget > 0) {
+            // 소환/스폰 패킷을 못 받은 고정 배치형 NPC(정적 허수아비 등)는 mobId가 끝까지
+            // 등록되지 않을 수 있습니다. 예전엔 !!로 강제 단정해서 이 경우 NPE가 나서
+            // 폴링 루프 자체가 멈춰버렸습니다 (그러면 이후 모든 딜/본인 탐지도 같이 멈춤).
+            // 지금은 못 찾으면 "타겟 인식 실패"로만 보이도록 report.target을 비워 둡니다.
             val mobCode = DataManager.mobId(currentTarget)
-            val mob = DataManager.mob(mobCode!!)
-            report.target = MobInfo(currentTarget, mob!!)
-            report.target!!.remainHp = DataManager.mobHp(currentTarget) ?: 0
-            report.target!!.maxHp = DataManager.mobMaxHp(currentTarget) ?: 0
-
+            val mob = mobCode?.let { DataManager.mob(it) }
+            if (mob != null) {
+                report.target = MobInfo(currentTarget, mob)
+                report.target!!.remainHp = DataManager.mobHp(currentTarget) ?: 0
+                report.target!!.maxHp = DataManager.mobMaxHp(currentTarget) ?: 0
+            }
         }
 
         val totalDamage = cachedInfo.values.sumOf { it.amount }
