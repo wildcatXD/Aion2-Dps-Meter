@@ -16,4 +16,16 @@ class UseBuffRepository {
             buff.buffStart <= timestamp2 && buff.buffEnd >= timestamp1
         } ?: emptyList()
     }
+
+    fun latestBySkillCode(id: Int): Map<Int, UseBuff> {
+        val latest = HashMap<Int, UseBuff>()
+        val list = storage[id] ?: return latest
+        for (buff in list) {
+            val prev = latest[buff.skillCode]
+            if (prev == null || buff.buffEnd >= prev.buffEnd) {
+                latest[buff.skillCode] = buff
+            }
+        }
+        return latest
+    }
 }

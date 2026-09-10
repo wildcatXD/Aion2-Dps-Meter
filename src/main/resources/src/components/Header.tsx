@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import type { PanelType } from "@/types";
-import { memo, useRef } from "react";
+import { memo } from "react";
 import {
   Settings,
   Power,
@@ -18,7 +18,6 @@ interface Props {
   className: string;
 }
 import { useSettingsStore } from "@/stores/useSettingsStore";
-import { useMoveWindow } from "@/hooks/drag/useMoveWindow";
 
 export const Header = memo(
   ({
@@ -34,8 +33,6 @@ export const Header = memo(
     const exitApp = () => {
       (window as any).javaBridge.exitApp();
     };
-    const dragRef = useRef<HTMLDivElement>(null);
-    useMoveWindow(dragRef);
 
     const toggleDebugConsole = () => {
       window.dispatchEvent(new CustomEvent("toggle-debug-console"));
@@ -44,9 +41,7 @@ export const Header = memo(
     return (
       <div className=" flex justify-between items-center">
         <div className={`flex gap-2 items-center ${className}`}>
-          <div
-            ref={dragRef}
-            className="window-drag-handle cursor-grab active:cursor-grabbing opacity-70 hover:opacity-100 transition-opacity p-1">
+          <div className="window-drag-handle cursor-grab active:cursor-grabbing opacity-70 hover:opacity-100 transition-opacity p-1">
             <Grip className="size-4 text-amber-200/80" />
           </div>
           <div className="flex items-baseline gap-1.5 pr-1 select-none">
@@ -54,7 +49,7 @@ export const Header = memo(
             <span className="text-[11px] font-semibold text-slate-300/85">DPS</span>
             {dpsMetric === "ndps" && (
               <span className="text-[9px] font-bold tracking-wide text-amber-300/90 border border-amber-400/30 rounded px-1 py-px">
-                nDPS
+                nDPS 실험
               </span>
             )}
           </div>

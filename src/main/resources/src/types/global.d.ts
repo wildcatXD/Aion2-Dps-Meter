@@ -15,6 +15,7 @@ declare global {
 
       getBattleDetailFromList?: (idx: number, id: number) => Promise<any>;
       getLiveBuffOperatingRate?: (id: number) => Promise<any>;
+      getTrackerStatus?: () => string;
       getLiveBossBuffOperatingRate?: () => Promise<any>;
       getBuffOperatingRate?: (idx: number, id: number) => Promise<any>;
       getBossBuffOperatingRate?: (idx: number) => Promise<any>;

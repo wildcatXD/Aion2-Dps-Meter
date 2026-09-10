@@ -22,6 +22,7 @@ import { SettingsRow } from "./SettingsRow";
 import { SettingsControlInput } from "./SettingsControlInput";
 import { ColorSwatch, GradientRow } from "@/components/colorpicker";
 import { GuildPairSettings } from "./GuildPairSettings";
+import { TrackerSkillPicker } from "./TrackerSkillPicker";
 import type { UpdateInfo } from "@/types";
 import {
   Select,
@@ -41,10 +42,10 @@ interface Props {
 }
 
 const DPS_METRICS: { value: DpsMetric; label: string; description: string }[] = [
-  { value: "rdps", label: "실딜 rDPS", description: "실제로 넣은 피해 / 전투시간" },
+  { value: "rdps", label: "실딜 rDPS", description: "실제 피해 / 전투시간. nDPS가 아닙니다." },
   {
     value: "ndps",
-    label: "개인 nDPS (실험)",
+    label: "개인 nDPS · 실험",
     description: "파티 질풍·격앙·노련한 반격·대지의 은총을 근사 제거",
   },
 ];
@@ -135,6 +136,8 @@ export const SettingsPanel = ({
     clickThroughHotkey,
     isClickThrough,
     isAutoHide,
+    guildAlertsEnabled,
+    trackerOverlayEnabled,
   } = useSettingsStore(
     useShallow((s) => ({
       hideHotkey: s.hideHotkey,
@@ -155,6 +158,8 @@ export const SettingsPanel = ({
       clickThroughHotkey: s.clickThroughHotkey,
       isClickThrough: s.isClickThrough,
       isAutoHide: s.isAutoHide,
+      guildAlertsEnabled: s.guildAlertsEnabled,
+      trackerOverlayEnabled: s.trackerOverlayEnabled,
     })),
   );
 
@@ -181,6 +186,8 @@ export const SettingsPanel = ({
     resetJoinPanelPosition,
     resetSidePanelPosition,
     resetMeterPosition,
+    setGuildAlertsEnabled,
+    setTrackerOverlayEnabled,
   } = useSettingsStore.getState();
   const {
     pending: pendingHide,
@@ -307,6 +314,28 @@ export const SettingsPanel = ({
 
         <SettingsItem>
           <SettingsRow
+            title="길드·보스 알람"
+            description="연동되면 아그로·우선 필드보스 임박을 미터 위에 띄웁니다.">
+            <Switch
+              checked={guildAlertsEnabled}
+              onCheckedChange={setGuildAlertsEnabled}
+              className="data-[state=checked]:bg-amber-500"
+            />
+          </SettingsRow>
+          <SettingsRow
+            title="추적 오버레이"
+            description="필요할 때만 켭니다. 고른 스킬의 버프 남은 시간, 오드에너지·슈고페스타 열쇠 칸.">
+            <Switch
+              checked={trackerOverlayEnabled}
+              onCheckedChange={setTrackerOverlayEnabled}
+              className="data-[state=checked]:bg-amber-500"
+            />
+          </SettingsRow>
+          {trackerOverlayEnabled && <TrackerSkillPicker />}
+        </SettingsItem>
+
+        <SettingsItem>
+          <SettingsRow
             title="폰트"
             description="표시 글꼴을 선택합니다"
             align="center"
@@ -394,7 +423,7 @@ export const SettingsPanel = ({
         <SettingsItem>
           <SettingsRow
             title="패스스루"
-            description="클릭이 미터기를 통과해 게임으로 전달됩니다.">
+            description="다른 모니터로 옮긴 뒤에는 빈 투명 영역이 클릭을 먹을 수 있습니다. 패스스루(기본 Ctrl+T)로 게임을 클릭하세요.">
             <Switch
               checked={isClickThrough}
               disabled
@@ -480,7 +509,7 @@ export const SettingsPanel = ({
 
           <SettingsRow
             title="딜 지표"
-            description="nDPS는 파티 시너지만 근사 제거합니다. 본인 버프·개인 PvE 증폭은 낫터기와 다를 수 있습니다."
+            description="rDPS = 실제 피해. nDPS = 파티 시너지 근사 제거(낫터기와 다를 수 있음)."
             align="center"
             rightClassName="w-44">
             <Select

@@ -15,6 +15,8 @@ import javafx.application.Application
 import javafx.application.HostServices
 import javafx.application.Platform
 import javafx.concurrent.Worker
+import javafx.collections.ListChangeListener
+import javafx.geometry.Rectangle2D
 import javafx.scene.Scene
 import javafx.scene.paint.Color
 import javafx.scene.web.WebEngine
@@ -128,6 +130,10 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
         fun getDpsData(): String {
             return cachedDpsJson
+        }
+
+        fun getTrackerStatus(): String {
+            return overlayJson.encodeToString(DataManager.trackerStatus())
         }
 
         fun isDebuggingMode(): Boolean {
@@ -349,10 +355,10 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
 
-        // 오버레이 창을 1920x1080으로 고정하면, 그보다 큰 해상도 모니터에서는 화면 오른쪽/아래
-        // 영역에 실제 투명 창이 존재하지 않아 미터기를 그쪽으로 옮길 수 없는 것처럼 보입니다.
-        // 실제 주 모니터 해상도에 맞춰 창을 만들어서 화면 전체에서 자유롭게 움직일 수 있게 합니다.
-        val screenBounds = Screen.getPrimary().bounds
+        // 투명 오버레이는 주 모니터만이 아니라 연결된 모든 화면을 덮어야
+        // 미터 UI를 다른 모니터로 드래그할 수 있습니다. Stage는 가상 데스크톱
+        // 원점에 고정하고, 실제 미터 위치는 웹쪽 CSS(uiX/uiY)가 담당합니다.
+        val screenBounds = virtualDesktopBounds()
         val scene = Scene(webView, screenBounds.width, screenBounds.height)
         scene.fill = Color.TRANSPARENT
 
@@ -373,11 +379,16 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         stage.scene = scene
         stage.isAlwaysOnTop = true
         stage.title = "Bit Dps Overlay"
-        stage.x = screenBounds.minX
-        stage.y = screenBounds.minY
+        applyVirtualDesktop(stage, webView, screenBounds)
+
+        Screen.getScreens().addListener(ListChangeListener<Screen> {
+            Platform.runLater {
+                applyVirtualDesktop(stage, webView, virtualDesktopBounds())
+            }
+        })
 
         stage.show()
-        logger.info("오버레이 창 표시 version={} {}x{}", version, screenBounds.width, screenBounds.height)
+        logger.info("오버레이 창 표시 version={} {}x{} origin=({}, {})", version, screenBounds.width, screenBounds.height, screenBounds.minX, screenBounds.minY)
         applyOverlayWindowStyle(stage.title)
 
         setupTray(stage)
@@ -447,6 +458,26 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                 }
             }
         }
+    }
+
+    private fun virtualDesktopBounds(): Rectangle2D {
+        val union = OverlayGeometry.union(
+            Screen.getScreens().map { screen ->
+                val b = screen.bounds
+                ScreenRect(b.minX, b.minY, b.width, b.height)
+            },
+        )
+        return Rectangle2D(union.minX, union.minY, union.width, union.height)
+    }
+
+    private fun applyVirtualDesktop(stage: Stage, webView: WebView, bounds: Rectangle2D) {
+        stage.x = bounds.minX
+        stage.y = bounds.minY
+        stage.width = bounds.width
+        stage.height = bounds.height
+        webView.prefWidth = bounds.width
+        webView.prefHeight = bounds.height
+        logger.info("오버레이 가상 데스크톱 {}x{} origin=({}, {})", bounds.width, bounds.height, bounds.minX, bounds.minY)
     }
 
     private fun isSelfFocused(): Boolean {

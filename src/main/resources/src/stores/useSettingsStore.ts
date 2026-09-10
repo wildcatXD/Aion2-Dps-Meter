@@ -158,6 +158,12 @@ interface SettingsState {
   setGuildDeviceToken: (v: string) => void;
   guildLinkedName: string;
   setGuildLinkedName: (v: string) => void;
+  guildAlertsEnabled: boolean;
+  setGuildAlertsEnabled: (v: boolean) => void;
+  trackerOverlayEnabled: boolean;
+  setTrackerOverlayEnabled: (v: boolean) => void;
+  trackedBuffCodes: number[];
+  setTrackedBuffCodes: (codes: number[]) => void;
 }
 
 const jb = () => (window as any).javaBridge;
@@ -213,6 +219,9 @@ const defaultSettings = {
   guildWebUrl: "",
   guildDeviceToken: "",
   guildLinkedName: "",
+  guildAlertsEnabled: true,
+  trackerOverlayEnabled: false,
+  trackedBuffCodes: [] as number[],
 };
 
 export const useSettingsStore = create<SettingsState>((set) => {
@@ -239,6 +248,11 @@ export const useSettingsStore = create<SettingsState>((set) => {
     const savedThemeRaw = j.loadProps?.("theme");
     let savedTheme: ThemeColors = DEFAULT_THEME;
 
+    const savedTrackedRaw = j.loadProps?.("trackedBuffCodes");
+    let savedTracked: number[] = defaultSettings.trackedBuffCodes;
+    try {
+      if (savedTrackedRaw) savedTracked = JSON.parse(savedTrackedRaw);
+    } catch {}
     const savedSkillCodesRaw = j.loadProps?.("visibleSkillCodes");
     let savedSkillCodes = DEFAULT_VISIBLE_SKILL_CODES;
     try {
@@ -337,6 +351,9 @@ export const useSettingsStore = create<SettingsState>((set) => {
       guildWebUrl: j.loadProps?.("guildWebUrl") || defaultSettings.guildWebUrl,
       guildDeviceToken: j.loadProps?.("guildDeviceToken") || defaultSettings.guildDeviceToken,
       guildLinkedName: j.loadProps?.("guildLinkedName") || defaultSettings.guildLinkedName,
+      guildAlertsEnabled: j.loadProps?.("guildAlertsEnabled") === "false" ? false : true,
+      trackerOverlayEnabled: j.loadProps?.("trackerOverlayEnabled") === "true",
+      trackedBuffCodes: Array.isArray(savedTracked) ? savedTracked.slice(0, 8) : defaultSettings.trackedBuffCodes,
 
       isLoaded: true,
     });
@@ -395,6 +412,9 @@ export const useSettingsStore = create<SettingsState>((set) => {
     guildWebUrl: defaultSettings.guildWebUrl,
     guildDeviceToken: defaultSettings.guildDeviceToken,
     guildLinkedName: defaultSettings.guildLinkedName,
+    guildAlertsEnabled: defaultSettings.guildAlertsEnabled,
+    trackerOverlayEnabled: defaultSettings.trackerOverlayEnabled,
+    trackedBuffCodes: defaultSettings.trackedBuffCodes,
 
     // setHotkey: (hotkey) => {
     //   set({ hotkey });
@@ -571,7 +591,6 @@ export const useSettingsStore = create<SettingsState>((set) => {
       });
       jb()?.saveProps?.("uiX", "0");
       jb()?.saveProps?.("uiY", "0");
-      jb()?.moveWindow?.(0, 0);
     },
     setSettingsPanelWidth: (settingsPanelWidth) => {
       set({ settingsPanelWidth });
@@ -613,6 +632,19 @@ export const useSettingsStore = create<SettingsState>((set) => {
     setGuildLinkedName: (guildLinkedName) => {
       set({ guildLinkedName });
       jb()?.saveProps?.("guildLinkedName", guildLinkedName);
+    },
+    setGuildAlertsEnabled: (guildAlertsEnabled) => {
+      set({ guildAlertsEnabled });
+      jb()?.saveProps?.("guildAlertsEnabled", String(guildAlertsEnabled));
+    },
+    setTrackerOverlayEnabled: (trackerOverlayEnabled) => {
+      set({ trackerOverlayEnabled });
+      jb()?.saveProps?.("trackerOverlayEnabled", String(trackerOverlayEnabled));
+    },
+    setTrackedBuffCodes: (trackedBuffCodes) => {
+      const next = trackedBuffCodes.slice(0, 8);
+      set({ trackedBuffCodes: next });
+      jb()?.saveProps?.("trackedBuffCodes", JSON.stringify(next));
     },
   };
 });

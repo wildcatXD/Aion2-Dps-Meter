@@ -17,6 +17,8 @@ import { JoinRequestPanel } from "@/components/joinPanel/JoinRequestPanel";
 import { cn } from "@/lib/utils";
 import { DebugConsole } from "./components/DebugConsole";
 import { useGuildInbox } from "@/hooks/useGuildInbox";
+import { OverlayToasts } from "@/components/OverlayToasts";
+import { TrackerOverlay } from "@/components/TrackerOverlay";
 import lock from "@/assets/lock.png";
 export default function App() {
   const {
@@ -55,8 +57,6 @@ export default function App() {
   const { meterWidth, onMouseDown, isDragging } = useResizable();
   const {
     headerPosition,
-    windowX,
-    windowY,
     isLoaded,
     rowHeight,
     isMinimal,
@@ -72,8 +72,6 @@ export default function App() {
   } = useSettingsStore(
     useShallow((s) => ({
       headerPosition: s.headerPosition,
-      windowX: s.windowX,
-      windowY: s.windowY,
       isLoaded: s.isLoaded,
       rowHeight: s.rowHeight,
       isMinimal: s.isMinimal,
@@ -138,11 +136,6 @@ export default function App() {
   useEffect(() => {
     selectedRef.current = selected;
   }, [selected]);
-
-  useEffect(() => {
-    if (!isLoaded) return;
-    (window as any).javaBridge?.moveWindow(windowX, windowY);
-  }, [isLoaded]);
 
   useEffect(() => {
     if (updateInfo) setActivePanel("update");
@@ -230,6 +223,7 @@ export default function App() {
         data-meter-root-anchor
         className={meterClass}
         style={{ width: meterWidth }}>
+        <OverlayToasts />
         {headerPosition === "top" && (
           <div className=" mb-2">
             <Header
@@ -264,6 +258,7 @@ export default function App() {
               combatTime={formatBattleTime(battleTime)}
             />
           )}
+          <TrackerOverlay />
         </div>
         {headerPosition === "bottom" && (
           <div className="mt-2">

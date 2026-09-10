@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useGuildStore } from "@/stores/useGuildStore";
 import { useSettingsStore } from "@/stores/useSettingsStore";
+import { formatRemainShort } from "@/utils/formatRemain";
 
 const formatWhen = (value: string | null) => {
   if (!value) return "시간 미정";
@@ -79,6 +80,31 @@ export const GuildPanel = () => {
                 내 응답: {inbox.agro.myResponse === "going" ? "참가" : "불참"}
               </p>
             )}
+          </section>
+        )}
+
+        {inbox?.fieldBosses && inbox.fieldBosses.length > 0 && (
+          <section className="rounded-lg border border-orange-500/20 bg-black/30 p-3">
+            <p className="text-[10px] tracking-widest text-orange-300 font-bold mb-1">필드보스 곧 출현</p>
+            <div className="space-y-1.5">
+              {inbox.fieldBosses.map((boss) => {
+                const remain = boss.targetAt - Date.now();
+                return (
+                  <div key={`${boss.bossCode}-${boss.targetAt}`} className="text-xs">
+                    <p className="truncate">
+                      {boss.name}
+                      {boss.priority ? (
+                        <span className="ml-1 text-[9px] font-bold text-orange-300">우선</span>
+                      ) : null}
+                    </p>
+                    <p className="opacity-50">
+                      {boss.regionName}
+                      {boss.kibeliskName ? ` · ${boss.kibeliskName}` : ""} · {formatRemainShort(remain)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
           </section>
         )}
 

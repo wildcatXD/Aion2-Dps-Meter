@@ -24,6 +24,7 @@ const empty = (): GuildInbox => ({
   myEvents: [],
   openEvents: [],
   agro: null,
+  fieldBosses: [],
 });
 
 export const useGuildStore = create<GuildState>((set) => ({
