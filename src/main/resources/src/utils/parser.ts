@@ -110,8 +110,10 @@ export function parseCombatData(raw: unknown): {
     const amount = Number(info.amount);
     const nAmountRaw = Number(info.nAmount);
     const nAmount = Number.isFinite(nAmountRaw) && nAmountRaw > 0 ? nAmountRaw : amount;
-    const damageContribution = Number(info.contribution);
-    const entireContribution = Number(info.entireContribution);
+    const damageContributionRaw = Number(info.contribution);
+    const damageContribution = Number.isFinite(damageContributionRaw) ? damageContributionRaw : 0;
+    const entireContributionRaw = Number(info.entireContribution);
+    const entireContribution = Number.isFinite(entireContributionRaw) ? entireContributionRaw : 0;
     if (!Number.isFinite(dps)) continue;
 
     const serverLabel = getServerLabel(contributor.server);
