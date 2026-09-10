@@ -199,18 +199,36 @@ object DataManager {
     private val DUMMY_TIMEOUT_MS = 5000L
 
     fun touchDummyBattle(mobId: Int, epoch: Long) {
+        touchDummyOrUnmappedBattle(mobId, epoch)
+    }
+
+    // 카탈로그에 isDummy로 등록된 허수아비뿐 아니라, 스폰 패킷을 못 받은 고정 NPC
+    // (레기온기지 허수아비 등)도 전투로 잡아야 미터기가 숫자만 보여주고 멈추지 않습니다.
+    fun touchDummyOrUnmappedBattle(targetId: Int, epoch: Long) {
         if (resetEpoch.get() != epoch) return
-        lastDummyHitTime = System.currentTimeMillis()
+        val mobCode = mobId(targetId)
+        val mappedDummy = mobCode != null && mob(mobCode)?.isDummy == true
+        val unmapped = mobCode == null
+        if (!mappedDummy && !unmapped) return
+
+        val now = System.currentTimeMillis()
         if (currentTarget() <= 0) {
+            lastDummyHitTime = now
             saveCurrentBattleStart()
-            saveCurrentTarget(mobId)
+            saveCurrentTarget(targetId)
+            return
+        }
+        if (currentTarget() == targetId) {
+            lastDummyHitTime = now
         }
     }
 
     fun checkDummyTimeout() {
         val current = currentTarget()
         if (current <= 0) return
-        if (!isCurrentTargetDummy()) return
+        val mappedDummy = isCurrentTargetDummy()
+        val unmapped = mobId(current) == null
+        if (!mappedDummy && !unmapped) return
         if (System.currentTimeMillis() - lastDummyHitTime > DUMMY_TIMEOUT_MS) {
             saveCurrentBattleEnd(lastDummyHitTime)
             saveCurrentTarget(-1)

@@ -90,7 +90,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
                 val actor = DataManager.summonerId(packet.getActorId()) ?: packet.getActorId()
                 var user = DataManager.user(actor)
                 if (user == null) {
-                    user = User(actor, nickname = actor.toString())
+                    user = User(actor, nickname = null)
                     DataManager.saveUser(user.id, user)
                 }
                 cachedContributors.remove(user)
@@ -127,17 +127,14 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         )
 
         if (currentTarget > 0) {
-            // 소환/스폰 패킷을 못 받은 고정 배치형 NPC(정적 허수아비 등)는 mobId가 끝까지
-            // 등록되지 않을 수 있습니다. 예전엔 !!로 강제 단정해서 이 경우 NPE가 나서
-            // 폴링 루프 자체가 멈춰버렸습니다 (그러면 이후 모든 딜/본인 탐지도 같이 멈춤).
-            // 지금은 못 찾으면 "타겟 인식 실패"로만 보이도록 report.target을 비워 둡니다.
+            // 소환/스폰 패킷을 못 받은 고정 NPC는 mob 카탈로그에 없을 수 있습니다.
+            // 예전엔 !!로 강제 단정해서 NPE가 났고, 그 다음에는 타겟을 비워 "타겟 인식 실패"만
+            // 보였습니다. 지금은 인스턴스 id라도 있으면 "미확인 대상"으로 표시합니다.
             val mobCode = DataManager.mobId(currentTarget)
-            val mob = mobCode?.let { DataManager.mob(it) }
-            if (mob != null) {
-                report.target = MobInfo(currentTarget, mob)
-                report.target!!.remainHp = DataManager.mobHp(currentTarget) ?: 0
-                report.target!!.maxHp = DataManager.mobMaxHp(currentTarget) ?: 0
-            }
+            val mob = mobCode?.let { DataManager.mob(it) } ?: Mob(0, "미확인 대상", false)
+            report.target = MobInfo(currentTarget, mob)
+            report.target!!.remainHp = DataManager.mobHp(currentTarget) ?: 0
+            report.target!!.maxHp = DataManager.mobMaxHp(currentTarget) ?: 0
         }
 
         val totalDamage = cachedInfo.values.sumOf { it.amount }
@@ -155,9 +152,18 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
             )
         }
 
+        cachedContributors.forEach { cached ->
+            DataManager.user(cached.id)?.let { live ->
+                cached.nickname = live.nickname
+                cached.isExecutor = live.isExecutor
+                cached.server = live.server
+                if (cached.job == null) cached.job = live.job
+            }
+        }
+
         if (DataManager.isCurrentTargetDummy()) {
             val executorId = DataManager.executorId()
-            if (executorId != 0 && !report.contributors.any { it.isExecutor }) {
+            if (executorId != 0 && report.contributors.none { it.isExecutor || it.id == executorId }) {
                 return recentData
             }
         }
