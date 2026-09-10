@@ -7,6 +7,11 @@ const RELEASE_URL = "https://github.com/wildcatXD/Aion2-Dps-Meter/releases";
 const RETRY_INTERVAL = 800;
 const RETRY_LIMIT = 5;
 
+// 미터기를 켜놓은 동안 주기적으로 새 버전이 있는지 다시 확인합니다.
+// GitHub API 익명 요청은 IP당 시간에 60회까지 허용되는데, 30분마다 1회면
+// 인스턴스 하나당 시간당 2회 수준이라 서버(GitHub)에 부담이 거의 없습니다.
+const AUTO_RECHECK_INTERVAL = 30 * 60 * 1000;
+
 const parseVersion = (value: string): Version | null => {
   const raw = String(value || "")
     .trim()
@@ -140,6 +145,22 @@ export const useVersionCheck = () => {
       cancelledRef.current = true;
     };
   }, []);
+
+  // 다운로드/설치 중에는 재확인을 건너뛰기 위해 최신 downloadState를
+  // ref로도 들고 있습니다 (interval 콜백이 클로저에 갇힌 값을 안 쓰도록).
+  const downloadStateRef = useRef<DownloadState>(downloadState);
+  useEffect(() => {
+    downloadStateRef.current = downloadState;
+  }, [downloadState]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const status = downloadStateRef.current.status;
+      if (status === "downloading" || status === "installing" || status === "complete") return;
+      checkUpdate();
+    }, AUTO_RECHECK_INTERVAL);
+    return () => clearInterval(interval);
+  }, [checkUpdate]);
 
   useEffect(() => {
     (window as any).onDownloadProgress = (percent: number) => {
