@@ -226,7 +226,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                     Platform.runLater { engine.executeScript("onDownloadComplete()") }
                     Platform.runLater { engine.executeScript("onInstallStarting()") }
 
-                    val exePath = currentExePath ?: ""
+                    val exePath = SilentUpdateScript.resolveLauncherPath(currentExePath)
                     scriptFile.writeText(
                         SilentUpdateScript.render(
                             currentPid,
