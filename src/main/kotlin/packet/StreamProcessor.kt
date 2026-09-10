@@ -12,6 +12,7 @@ import net.jpountz.lz4.LZ4Factory
 import org.slf4j.LoggerFactory
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.ConcurrentHashMap
 
 class StreamProcessor() {
     private val logger = LoggerFactory.getLogger(StreamProcessor::class.java)
@@ -43,6 +44,8 @@ class StreamProcessor() {
         object InstanceStart : Opcode(0x18, 0x97)
         object ExitParty     : Opcode(0x1D, 0x97)
     }
+
+    private val seenUnknownOpcodes = ConcurrentHashMap.newKeySet<Int>()
 
     private val handlers: Map<Int, (ByteArray, VarIntOutput, Boolean, Long, Long) -> Unit> = mapOf(
         Opcode.OwnNickname.key   to { packet, lengthInfo, extraFlag, _, arrivedAt    -> searchOwnNickname(packet, lengthInfo, extraFlag, arrivedAt) },
@@ -88,7 +91,33 @@ class StreamProcessor() {
         if (opcodeOffset + 1 >= packet.size) return
 
         val opcodeKey = (packet[opcodeOffset].toInt() and 0xFF) or ((packet[opcodeOffset + 1].toInt() and 0xFF) shl 8)
-        handlers[opcodeKey]?.invoke(packet, lengthInfo, extraFlag, epoch, arrivedAt)
+        val handler = handlers[opcodeKey]
+        if (handler != null) {
+            handler.invoke(packet, lengthInfo, extraFlag, epoch, arrivedAt)
+        } else {
+            if (seenUnknownOpcodes.add(opcodeKey)) {
+                val b1 = packet[opcodeOffset].toInt() and 0xFF
+                val b2 = packet[opcodeOffset + 1].toInt() and 0xFF
+                logger.info(
+                    "미처리 옵코드 0x{} 0x{} size={}",
+                    "%02X".format(b1),
+                    "%02X".format(b2),
+                    packet.size,
+                )
+            }
+            // 본인 닉네임 옵코드가 패치로 바뀌었거나, 캐릭터 선택 전에 미터기를 못 켠
+            // 경우에는 0x36 계열 패킷을 같은 레이아웃으로 한 번 더 시도합니다.
+            if ((packet[opcodeOffset + 1].toInt() and 0xFF) == 0x36) {
+                parseOwnNicknameBody(
+                    packet,
+                    opcodeOffset + 2,
+                    arrivedAt,
+                    isExecutor = DataManager.executorId() == 0,
+                    logFailures = false,
+                )
+            }
+        }
+        harvestNicknamesForKnownActors(packet)
     }
 
     private fun decompressPacket(
@@ -138,41 +167,49 @@ class StreamProcessor() {
         if (packet.size < offset + 2) return
         if (packet[offset] != 0x33.toByte()) return
         if (packet[offset + 1] != 0x36.toByte()) return
+        parseOwnNicknameBody(packet, offset + 2, arrivedAt, isExecutor = true, logFailures = true)
+    }
 
+    private fun parseOwnNicknameBody(
+        packet: ByteArray,
+        start: Int,
+        arrivedAt: Long,
+        isExecutor: Boolean,
+        logFailures: Boolean,
+    ): Boolean {
+        var offset = start
+        if (packet.size < offset) return false
 
-        offset += 2
-        if (packet.size < offset) return
-
-        val userInfo = readVarInt(packet, offset)
-        if (userInfo.length < 0) return
+        val userInfo = readVarInt(packet, offset, silent = !logFailures)
+        if (userInfo.length < 0) return false
 
         offset += userInfo.length
-        if (offset >= packet.size) return
+        if (offset >= packet.size) return false
 
         if (packet.size < offset + 10) {
-            logger.warn("본인 닉네임 패킷이 너무 짧습니다 uid={} extraFlag={}", userInfo.value, extraFlag)
-            return
+            if (logFailures) logger.warn("본인 닉네임 패킷이 너무 짧습니다 uid={} ", userInfo.value)
+            return false
         }
         val spliterIdx = findArrayIndex(packet.copyOfRange(offset, offset + 10), 0x07)
         if (spliterIdx == -1) {
-            logger.warn("본인 닉네임 패킷에서 구분자(0x07)를 찾지 못했습니다 uid={} extraFlag={}", userInfo.value, extraFlag)
-            return
+            if (logFailures) logger.warn("본인 닉네임 패킷에서 구분자(0x07)를 찾지 못했습니다 uid={}", userInfo.value)
+            return false
         }
         offset += spliterIdx + 1
 
-        val nameLengthInfo = readVarInt(packet, offset)
+        val nameLengthInfo = readVarInt(packet, offset, silent = !logFailures)
         offset += nameLengthInfo.length
-        if (nameLengthInfo.length > 71) return
-        if (offset >= packet.size) return
-        if (offset + nameLengthInfo.value > packet.size) return
+        if (nameLengthInfo.length > 71) return false
+        if (offset >= packet.size) return false
+        if (offset + nameLengthInfo.value > packet.size) return false
 
         var server = -1
         var job = -1
         val np = packet.copyOfRange(offset, offset + nameLengthInfo.value)
         val nickname = String(np, Charsets.UTF_8)
         if (!isValidNickname(nickname)) {
-            logger.warn("본인 닉네임 문자열이 유효하지 않습니다 uid={} raw={}", userInfo.value, nickname)
-            return
+            if (logFailures) logger.warn("본인 닉네임 문자열이 유효하지 않습니다 uid={} raw={}", userInfo.value, nickname)
+            return false
         }
 
         offset += nameLengthInfo.value
@@ -187,14 +224,83 @@ class StreamProcessor() {
                 job = packet[offset].toInt() and 0xff
             }
         }
-        DataManager.saveNickname(userInfo.value, nickname, true, server)
+        DataManager.saveNickname(userInfo.value, nickname, isExecutor, server)
         if (job >= 0) {
             DataManager.user(userInfo.value)?.let { user ->
                 if (user.job == null) user.job = JobClass.convertFromCode(job)
             }
         }
-        logger.info("본인 닉네임 탐지 uid={} nick={} server={} extraFlag={}", userInfo.value, nickname, server, extraFlag)
+        logger.info(
+            "본인 닉네임 탐지 uid={} nick={} server={} executor={}",
+            userInfo.value,
+            nickname,
+            server,
+            isExecutor,
+        )
         PacketAddonManager.parse(packet, arrivedAt)
+        return true
+    }
+
+    /**
+     * 캐릭터 선택 전에 미터기를 못 켜서 본인 닉네임 패킷을 놓친 경우,
+     * 이미 딜로 등록된 uid 가 다른 패킷에 이름과 같이 다시 나타나면 그때 붙입니다.
+     */
+    private fun harvestNicknamesForKnownActors(packet: ByteArray) {
+        val missing = DataManager.usersMissingNickname()
+        if (missing.isEmpty()) return
+        for (user in missing) {
+            if (user.id <= 0) continue
+            val encoded = encodeVarInt(user.id)
+            if (encoded.size < 2) continue
+            val idx = findArrayIndex(packet, encoded)
+            if (idx == -1) continue
+            val extracted = extractNicknameAfter(packet, idx + encoded.size) ?: continue
+            val markExecutor = DataManager.executorId() == 0
+            DataManager.saveNickname(user.id, extracted.first, markExecutor, extracted.second)
+            logger.info(
+                "닉네임 보조탐지 uid={} nick={} server={} executor={}",
+                user.id,
+                extracted.first,
+                extracted.second,
+                markExecutor,
+            )
+        }
+    }
+
+    private fun encodeVarInt(value: Int): ByteArray {
+        val out = ArrayList<Byte>()
+        var v = value
+        while (v > 0x7F) {
+            out += ((v and 0x7F) or 0x80).toByte()
+            v = v ushr 7
+        }
+        out += v.toByte()
+        return out.toByteArray()
+    }
+
+    private fun extractNicknameAfter(packet: ByteArray, from: Int): Pair<String, Int>? {
+        if (from >= packet.size) return null
+        var offset = from
+        if (from + 10 <= packet.size) {
+            val idx = findArrayIndex(packet.copyOfRange(from, from + 10), 0x07)
+            if (idx != -1) offset = from + idx + 1
+        }
+        if (offset >= packet.size) return null
+        val lenInfo = readVarInt(packet, offset, silent = true)
+        if (lenInfo.length <= 0 || lenInfo.value < 2 || lenInfo.value > 24) return null
+        offset += lenInfo.length
+        if (offset + lenInfo.value > packet.size) return null
+        val nickname = String(packet.copyOfRange(offset, offset + lenInfo.value), Charsets.UTF_8)
+        if (!isValidNickname(nickname) || nickname.length > 16) return null
+        offset += lenInfo.value
+        var server = -1
+        if (offset + 2 <= packet.size) {
+            val candidate = ByteBuffer.wrap(packet, offset, 2)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .short.toInt() and 0xffff
+            if (candidate in 1001..1021 || candidate in 2001..2021) server = candidate
+        }
+        return nickname to server
     }
 
     private fun searchOtherNickname(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean, arrivedAt: Long) {
@@ -652,14 +758,14 @@ class StreamProcessor() {
         return bytes.joinToString(" ") { "%02X".format(it) }
     }
 
-    fun readVarInt(bytes: ByteArray, offset: Int = 0): VarIntOutput {
+    fun readVarInt(bytes: ByteArray, offset: Int = 0, silent: Boolean = false): VarIntOutput {
         var value = 0
         var shift = 0
         var count = 0
 
         while (true) {
             if (offset + count >= bytes.size) {
-                logger.error("배열범위초과, 패킷 {} 오프셋 {} count {}", toHex(bytes), offset, count)
+                if (!silent) logger.error("배열범위초과, 패킷 {} 오프셋 {} count {}", toHex(bytes), offset, count)
                 return VarIntOutput(-1, -1)
             }
 

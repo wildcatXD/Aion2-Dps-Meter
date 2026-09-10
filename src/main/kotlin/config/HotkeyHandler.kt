@@ -125,11 +125,11 @@ object HotkeyHandler {
             // else logger.info("단축키 등록 성공: $currentHotkey")
 
             val registeredVisibility = user32.RegisterHotKey(null, VISIBILITY_HOTKEY_ID, visibilityHotkey.modifiers, visibilityHotkey.vkCode)
-            if (!registeredVisibility) logger.error("숨기기 단축키 등록 실패: $visibilityHotkey")
+            if (!registeredVisibility) logger.error("숨기기 단축키 등록 실패: $visibilityHotkey (다른 프로그램이 Ctrl+H 를 이미 쓰고 있을 수 있습니다. 설정에서 단축키를 바꿔주세요)")
             else logger.info("숨기기 단축키 등록 성공: $visibilityHotkey")
 
             val registeredClickThrough = user32.RegisterHotKey(null, CLICK_THROUGH_HOTKEY_ID, clickThroughHotkey.modifiers, clickThroughHotkey.vkCode)
-            if (!registeredClickThrough) logger.error("클릭 통과 단축키 등록 실패: $clickThroughHotkey")
+            if (!registeredClickThrough) logger.error("클릭 통과 단축키 등록 실패: $clickThroughHotkey (다른 프로그램이 Ctrl+T 를 이미 쓰고 있을 수 있습니다. 설정에서 단축키를 바꿔주세요)")
             else logger.info("클릭 통과 단축키 등록 성공: $clickThroughHotkey")
 
             if (
