@@ -499,16 +499,28 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     }
 
     private fun setupTray(stage: Stage) {
-        if (!SystemTray.isSupported()) return
+        // 콘솔 없는 windows 실행 파일이라 System.err로 나가는 에러는 아무 데도 안 보입니다.
+        // 트레이 등록이 조용히 실패하면 "미터기는 켜졌는데 숨겨진 아이콘에 안 보인다"는
+        // 증상만 남고 원인을 알 수 없으므로, 여기서는 무조건 로그 파일에 결과를 남깁니다.
+        if (!SystemTray.isSupported()) {
+            logger.warn("이 환경에서는 SystemTray를 지원하지 않아 트레이 아이콘을 등록하지 않습니다.")
+            return
+        }
         EventQueue.invokeLater {
             try {
                 val tray = SystemTray.getSystemTray()
                 val iconUrl = javaClass.getResource("/src/assets/logo.png")
                 val image = if (iconUrl != null) {
-                    ImageIO.read(iconUrl)
+                    try {
+                        ImageIO.read(iconUrl)
+                    } catch (e: Exception) {
+                        logger.error("트레이 아이콘 이미지 로드 실패, 빈 아이콘으로 대체합니다: $iconUrl", e)
+                        null
+                    }
                 } else {
-                    java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB)
-                }
+                    logger.warn("트레이 아이콘 리소스를 찾지 못했습니다: /src/assets/logo.png")
+                    null
+                } ?: java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB)
 
                 val popup = PopupMenu()
                 val showItem = MenuItem("보이기/숨기기")
@@ -534,7 +546,8 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                     })
                 }
                 tray.add(trayIcon)
-            } catch (e: AWTException) {
+                logger.info("트레이 아이콘 등록 완료 (작업표시줄의 '숨겨진 아이콘' 영역에서 확인할 수 있습니다)")
+            } catch (e: Exception) {
                 logger.error("트레이 설정 실패", e)
             }
         }
