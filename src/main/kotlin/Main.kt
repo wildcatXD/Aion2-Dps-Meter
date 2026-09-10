@@ -12,6 +12,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.supervisorScope
 
 fun main() = runBlocking {
     // 이 앱은 콘솔 없는(windowed) 실행 파일로 패키징되어 있어서 System.out/System.err로
@@ -29,6 +30,7 @@ fun main() = runBlocking {
     }
 
     val mainLogger = org.slf4j.LoggerFactory.getLogger("Main")
+    mainLogger.info("빛 레기온 미터기 시작")
     Thread.setDefaultUncaughtExceptionHandler { t, e ->
         mainLogger.error("처리되지 않은 예외로 쓰레드가 종료되었습니다: ${t.name}", e)
     }
@@ -38,7 +40,7 @@ fun main() = runBlocking {
     val channel = Channel<CapturedPacket>(Channel.UNLIMITED)
     val pcapConfig = PcapCapturerConfig.loadFromProperties()
     val versionConfig = VersionConfig.loadFromProperties()
-
+    mainLogger.info("버전 {}", versionConfig.version)
 
     val processor = StreamProcessor()
     val alignmenter = PacketAlignmenter()
@@ -49,34 +51,40 @@ fun main() = runBlocking {
         alignmenter.reset()
     }
 
-    launch(Dispatchers.Default) {
-        var currentIp = ""
-        for ((ip, seq, data, arrivedAt) in channel) {
-            if (ip != currentIp) {
-                currentIp = ip
-                alignmenter.reset()
-            }
-            val chunks = alignmenter.feed(seq, data, arrivedAt)
-            for ((chunk, ts) in chunks) {
-                assembler.processChunk(chunk, ts)
+    supervisorScope {
+        launch(Dispatchers.Default) {
+            var currentIp = ""
+            for ((ip, seq, data, arrivedAt) in channel) {
+                if (ip != currentIp) {
+                    currentIp = ip
+                    alignmenter.reset()
+                }
+                val chunks = alignmenter.feed(seq, data, arrivedAt)
+                for ((chunk, ts) in chunks) {
+                    assembler.processChunk(chunk, ts)
+                }
             }
         }
-    }
 
-    launch(Dispatchers.IO) {
-        capturer.start()
-    }
-
-    launch {
-        while (true) {
-            delay(1000)
-            DataManager.checkDummyTimeout()
+        launch(Dispatchers.IO) {
+            try {
+                capturer.start()
+            } catch (e: Exception) {
+                mainLogger.error("패킷 캡처 스레드가 종료되었습니다. 오버레이는 유지합니다", e)
+            }
         }
-    }
 
-    Platform.startup {
-        val browserApp = BrowserApp(versionConfig,calculator)
-        browserApp.start(Stage())
+        launch {
+            while (true) {
+                delay(1000)
+                DataManager.checkDummyTimeout()
+            }
+        }
+
+        Platform.startup {
+            val browserApp = BrowserApp(versionConfig, calculator)
+            browserApp.start(Stage())
+        }
     }
 }
 

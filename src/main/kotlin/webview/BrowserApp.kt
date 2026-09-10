@@ -377,6 +377,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         stage.y = screenBounds.minY
 
         stage.show()
+        logger.info("오버레이 창 표시 version={} {}x{}", version, screenBounds.width, screenBounds.height)
         applyOverlayWindowStyle(stage.title)
 
         setupTray(stage)
@@ -527,7 +528,15 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                     ?: javaClass.getResource("/src/assets/logo.png")
                 val image = if (iconUrl != null) {
                     try {
-                        ImageIO.read(iconUrl)
+                        val loaded = ImageIO.read(iconUrl)
+                        if (loaded == null) {
+                            logger.warn("트레이 아이콘 디코드 결과가 null 입니다: $iconUrl")
+                            null
+                        } else {
+                            // logo.png 는 527x172 배너라 트레이에 그대로 넣으면 Windows AWT
+                            // 네이티브 피어가 죽거나 한동안 응답이 없을 수 있습니다.
+                            scaleForTray(loaded, tray)
+                        }
                     } catch (e: Exception) {
                         logger.error("트레이 아이콘 이미지 로드 실패, 빈 아이콘으로 대체합니다: $iconUrl", e)
                         null
@@ -566,6 +575,27 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                 logger.error("트레이 설정 실패", e)
             }
         }
+    }
+
+    private fun scaleForTray(src: java.awt.image.BufferedImage, tray: SystemTray): java.awt.image.BufferedImage {
+        val traySize = tray.trayIconSize
+        val w = traySize.width.coerceIn(16, 64)
+        val h = traySize.height.coerceIn(16, 64)
+        val side = minOf(src.width, src.height).coerceAtLeast(1)
+        val sx = ((src.width - side) / 2).coerceAtLeast(0)
+        val sy = ((src.height - side) / 2).coerceAtLeast(0)
+        val dst = java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB)
+        val g = dst.createGraphics()
+        try {
+            g.setRenderingHint(
+                java.awt.RenderingHints.KEY_INTERPOLATION,
+                java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR,
+            )
+            g.drawImage(src, 0, 0, w, h, sx, sy, sx + side, sy + side, null)
+        } finally {
+            g.dispose()
+        }
+        return dst
     }
 
     private fun hideToTray(stage: Stage) {

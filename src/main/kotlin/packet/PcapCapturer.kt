@@ -8,7 +8,6 @@ import org.pcap4j.packet.TcpPacket
 import org.slf4j.LoggerFactory
 import java.net.DatagramSocket
 import java.net.InetAddress
-import kotlin.system.exitProcess
 
 data class CapturedPacket(val ip: String, val seq: Long, val data: ByteArray, val arrivedAt: Long)
 
@@ -21,8 +20,8 @@ class PcapCapturer(private val config: PcapCapturerConfig, private val channel: 
             return try {
                 Pcaps.findAllDevs() ?: emptyList()
             } catch (e: PcapNativeException) {
-                logger.error("Pcap 핸들러 초기화 실패",e)
-                exitProcess(2)
+                logger.error("Pcap 핸들러 초기화 실패", e)
+                emptyList()
             }
         }
     }
@@ -44,18 +43,34 @@ class PcapCapturer(private val config: PcapCapturerConfig, private val channel: 
 
 
     fun start() {
+        while (true) {
+            try {
+                startOnce()
+                return
+            } catch (e: InterruptedException) {
+                logger.error("패킷 캡처가 중단되었습니다", e)
+                return
+            } catch (e: Exception) {
+                logger.error("패킷 캡처 실패, 5초 후 재시도합니다. 오버레이는 그대로 둡니다", e)
+                try {
+                    Thread.sleep(5000)
+                } catch (ie: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    return
+                }
+            }
+        }
+    }
+
+    private fun startOnce() {
         val socket = DatagramSocket()
         socket.connect(InetAddress.getByName(config.serverIp.split("/")[0]), config.serverPort.toInt())
         val ip = socket.localAddress.hostAddress
         if (ip == null) {
-            logger.error("ip 검색에 실패했습니다.")
-            exitProcess(1)
+            throw IllegalStateException("ip 검색에 실패했습니다.")
         }
         val nif = getMainDevice(ip)
-        if (nif == null){
-            logger.error("네트워크 디바이스 탐색에 실패했습니다.")
-            exitProcess(1)
-        }
+            ?: throw IllegalStateException("네트워크 디바이스 탐색에 실패했습니다. 관리자 권한/Npcap을 확인하세요.")
         val handle = nif.openLive(config.snapshotSize, PcapNetworkInterface.PromiscuousMode.PROMISCUOUS, config.timeout)
         val filter = "src net ${config.serverIp} and port ${config.serverPort}"
         handle.setFilter(filter, BpfProgram.BpfCompileMode.OPTIMIZE)
@@ -74,12 +89,8 @@ class PcapCapturer(private val config: PcapCapturerConfig, private val channel: 
                 }
             }
         }
-        try {
-            handle.use { h ->
-                h.loop(-1, listener)
-            }
-        } catch (e: InterruptedException) {
-            logger.error("채널 소비에서 문제가 발생했습니다.",e)
+        handle.use { h ->
+            h.loop(-1, listener)
         }
     }
 
