@@ -2,6 +2,7 @@ package com.tbread.data
 
 import com.tbread.data.repository.*
 import com.tbread.entity.*
+import com.tbread.util.SkillCodes
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentLinkedDeque
@@ -420,6 +421,45 @@ object DataManager {
 
     fun battleBuff(uid:Int,start:Long,end:Long): List<UseBuff> {
         return useBuffRepository.findOverlapping(uid,start,end)
+    }
+
+    @Volatile
+    var odeEnergy: Int? = null
+        private set
+
+    @Volatile
+    var shugoKeys: Int? = null
+        private set
+
+    fun trackerStatus(): TrackerStatus {
+        val uid = executorId()
+        val now = System.currentTimeMillis()
+        val latest = if (uid == 0) emptyMap() else useBuffRepository.latestBySkillCode(uid)
+        val grouped = LinkedHashMap<Int, TrackedBuff>()
+        for (buff in latest.values) {
+            val base = SkillCodes.base(buff.skillCode)
+            val remaining = (buff.buffEnd - now).coerceAtLeast(0L)
+            val existing = grouped[base]
+            if (existing == null || remaining >= existing.remainingMs) {
+                grouped[base] = TrackedBuff(
+                    skillCode = base,
+                    name = resolveBuffName(buff.skillCode, base),
+                    remainingMs = remaining,
+                    durationMs = buff.duration.coerceAtLeast(1L),
+                )
+            }
+        }
+        return TrackerStatus(
+            odeEnergy = odeEnergy,
+            shugoKeys = shugoKeys,
+            buffs = grouped.values.toList(),
+        )
+    }
+
+    private fun resolveBuffName(skillCode: Int, base: Int): String? {
+        return buff(skillCode)?.name
+            ?: skill(skillCode.toLong())?.name
+            ?: skill(base.toLong())?.name
     }
 
     fun buff(buffCode:Int):Buff?{

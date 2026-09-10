@@ -24,6 +24,15 @@ export type GuildAgro = {
   skipCount?: number;
 } | null;
 
+export type GuildFieldBoss = {
+  bossCode: number;
+  name: string;
+  regionName: string;
+  kibeliskName: string | null;
+  targetAt: number;
+  priority: boolean;
+};
+
 export type GuildInbox = {
   linked: boolean;
   member: { id: number; name: string; className: string | null } | null;
@@ -32,6 +41,7 @@ export type GuildInbox = {
   myEvents: GuildEvent[];
   openEvents: GuildEvent[];
   agro: GuildAgro;
+  fieldBosses?: GuildFieldBoss[];
 };
 
 export function normalizeGuildUrl(raw: string): string {
