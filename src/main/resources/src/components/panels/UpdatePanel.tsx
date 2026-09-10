@@ -198,7 +198,7 @@ export const UpdatePanel = ({
             ✓
           </div>
           <p className="text-sm text-slate-200">다운로드가 완료되었습니다</p>
-          <p className="text-sm text-white/45">설치 프로그램을 실행합니다...</p>
+          <p className="text-sm text-white/45">설치를 시작합니다. 미터기가 잠시 종료됩니다.</p>
         </div>
       )}
 
