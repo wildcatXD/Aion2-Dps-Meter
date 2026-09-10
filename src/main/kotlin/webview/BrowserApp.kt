@@ -180,16 +180,19 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
         fun startUpdate(msiUrl: String) {
-            // 재실행할 때 쓸 실행 파일 경로를 미리 잡아둡니다. 설치가 끝난 뒤에는 msiexec가
-            // 같은 경로에 파일을 덮어쓰므로, 지금 떠 있는 이 프로세스의 실행 파일 경로를 그대로
-            // 다시 실행하면 됩니다.
+            // 재실행할 때 쓸 실행 파일 경로와 PID를 미리 잡아둡니다. msiexec는 지금 떠 있는
+            // 실행 파일을 덮어써야 하는데, 프로세스가 살아 있으면 파일이 잠겨 무인 설치가
+            // 실패하고 설치 마법사로 넘어갔습니다. 그래서 다운로드가 끝나면 헬퍼 스크립트만
+            // 띄운 뒤 미터기는 바로 종료하고, 헬퍼가 종료를 기다렸다가 조용히 설치·재실행합니다.
             val currentExePath = ProcessHandle.current().info().command().orElse(null)
+            val currentPid = ProcessHandle.current().pid()
 
             Thread {
                 try {
                     val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "bit-dps-meter").also { it.mkdirs() }
                     val msiFile = java.io.File(tempDir, "bit-dps-meter-update.msi")
                     val logFile = java.io.File(tempDir, "install.log")
+                    val scriptFile = java.io.File(tempDir, "apply-update.cmd")
 
                     val connection = java.net.URI(msiUrl).toURL().openConnection() as java.net.HttpURLConnection
                     connection.connect()
@@ -216,60 +219,71 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                     Platform.runLater { engine.executeScript("onDownloadComplete()") }
                     Platform.runLater { engine.executeScript("onInstallStarting()") }
 
-                    // 조용히(무인) 설치합니다. 미터기가 이미 관리자 권한으로 실행 중이라 msiexec도
-                    // 같은 권한을 물려받아 UAC 창이 따로 뜨지 않습니다. 설치가 끝날 때까지 기다린
-                    // 뒤, 성공하면 새로 설치된 실행 파일을 자동으로 다시 실행하고 지금 프로세스는
-                    // 종료합니다 — 설치 마법사의 다음/설치 버튼을 누르는 등 별도 조작이 필요 없습니다.
-                    val installProcess = ProcessBuilder(
-                        "msiexec", "/i", msiFile.absolutePath,
-                        "/quiet", "/norestart",
-                        "/l*v", logFile.absolutePath,
+                    val exePath = currentExePath ?: ""
+                    scriptFile.writeText(buildUpdateScript())
+
+                    // start "" 로 새 콘솔 없이 분리된 프로세스를 만듭니다. 지금 JVM이 종료돼도
+                    // 헬퍼가 같이 죽지 않고, 미터기 종료 → 무인 설치 → 재실행 순서로 이어갑니다.
+                    // 인자로 경로를 넘기는 이유는 스크립트 파일을 ASCII만 쓰게 하기 위함입니다.
+                    ProcessBuilder(
+                        "cmd.exe", "/c", "start", "/min", "",
+                        scriptFile.absolutePath,
+                        currentPid.toString(),
+                        msiFile.absolutePath,
+                        exePath,
+                        logFile.absolutePath,
                     ).start()
-                    val exitCode = installProcess.waitFor()
 
-                    if (exitCode == 0) {
-                        if (currentExePath != null && java.io.File(currentExePath).exists()) {
-                            try {
-                                Runtime.getRuntime().exec(arrayOf(currentExePath))
-                            } catch (e: Exception) {
-                                logger.error("업데이트 후 재실행 실패, 수동으로 다시 실행해야 합니다", e)
-                            }
-                        } else {
-                            logger.warn("실행 파일 경로를 찾지 못해 자동 재실행을 건너뜁니다: $currentExePath")
-                        }
-                        Thread.sleep(500)
-                        Platform.exit()
-                        exitProcess(0)
-                    }
-
-                    // 무인 설치가 실패하면(exitCode != 0) 설치 마법사를 직접 띄워서 사용자가
-                    // 눈으로 보고 마무리할 수 있게 합니다. 로그는 install.log에 남아있습니다.
-                    logger.error("무인 설치 실패 (exitCode=$exitCode), 설치 마법사를 직접 엽니다: ${logFile.absolutePath}")
-                    val installerLaunched = try {
-                        Runtime.getRuntime().exec(arrayOf("msiexec", "/i", msiFile.absolutePath))
-                        true
-                    } catch (e: Exception) {
-                        logger.error("설치 프로그램 실행 실패, 폴더만 엽니다", e)
-                        try {
-                            Runtime.getRuntime().exec(arrayOf("explorer.exe", tempDir.absolutePath))
-                        } catch (e2: Exception) {
-                            logger.error("탐색기 열기 실패", e2)
-                        }
-                        false
-                    }
-
-                    if (installerLaunched) {
-                        Thread.sleep(1500)
-                        Platform.exit()
-                        exitProcess(0)
-                    } else {
-                        Platform.runLater { engine.executeScript("onDownloadError()") }
-                    }
+                    logger.info("업데이트 헬퍼를 실행했습니다. 미터기를 종료한 뒤 무인 설치가 진행됩니다: ${logFile.absolutePath}")
+                    Thread.sleep(800)
+                    Platform.exit()
+                    exitProcess(0)
                 } catch (e: Exception) {
                     logger.error("업데이트 실패", e)
                     Platform.runLater { engine.executeScript("onDownloadError()") }
                 }
             }.start()
+        }
+
+        private fun buildUpdateScript(): String {
+            // cmd.exe 배치. 인자는 (1) 종료를 기다릴 PID (2) MSI 경로 (3) 재실행할 exe (4) 로그 경로.
+            // 무인 설치가 실패하면(파일 잠금이 아닌 다른 이유) 예전처럼 설치 마법사를 엽니다.
+            return """
+                @echo off
+                setlocal EnableExtensions
+                set "WAIT_PID=%~1"
+                set "MSI=%~2"
+                set "EXE=%~3"
+                set "LOG=%~4"
+                set "INSTALLDIR=%~dp3"
+                if "%INSTALLDIR:~-1%"=="\" set "INSTALLDIR=%INSTALLDIR:~0,-1%"
+
+                set /a N=0
+                :wait
+                if %N% GEQ 60 goto install
+                timeout /t 1 /nobreak >nul
+                set /a N+=1
+                tasklist /FI "PID eq %WAIT_PID%" | findstr /I /C:" %WAIT_PID% " >nul
+                if not errorlevel 1 goto wait
+
+                timeout /t 2 /nobreak >nul
+
+                :install
+                if "%INSTALLDIR%"=="" (
+                  msiexec /i "%MSI%" /quiet /norestart /l*v "%LOG%"
+                ) else (
+                  msiexec /i "%MSI%" /quiet /norestart ALLUSERS=1 INSTALLDIR="%INSTALLDIR%" /l*v "%LOG%"
+                )
+                if %ERRORLEVEL% EQU 0 goto relaunch
+                if %ERRORLEVEL% EQU 3010 goto relaunch
+
+                msiexec /i "%MSI%"
+                exit /b
+
+                :relaunch
+                if exist "%EXE%" start "" "%EXE%"
+                exit /b 0
+            """.trimIndent() + "\n"
         }
 
         fun pushJoinRequest(data: JoinRequestUser) {

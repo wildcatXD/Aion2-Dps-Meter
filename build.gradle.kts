@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.tbread"
-version = "1.8.8"
+version = "1.8.9"
 
 val frontendDir = layout.projectDirectory.dir("src/main/resources")
 val frontendBuildInputs = fileTree(frontendDir) {
@@ -113,7 +113,11 @@ compose.desktop {
 
         nativeDistributions {
             windows{
-                // upgradeUuid = "B8A7C3D2-1F4E-4A8B-9C6D-E5F234567890"
+                // 이 UUID는 버전을 올려도 바꾸면 안 됩니다. Windows Installer가 같은
+                // 제품의 업그레이드인지 이 값으로 판단해서, 이전 MSI를 지우고 새 파일로
+                // 교체합니다. 비활성화하면 매 버전이 별도 제품으로 설치되어 설치 마법사가
+                // 매번 뜨고 무인 업데이트가 실패합니다.
+                upgradeUuid = "B8A7C3D2-1F4E-4A8B-9C6D-E5F234567890"
                 includeAllModules = true
                 shortcut = true
                 menu = true
