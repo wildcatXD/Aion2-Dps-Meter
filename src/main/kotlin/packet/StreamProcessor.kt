@@ -45,9 +45,9 @@ class StreamProcessor() {
     }
 
     private val handlers: Map<Int, (ByteArray, VarIntOutput, Boolean, Long, Long) -> Unit> = mapOf(
-        Opcode.OwnNickname.key   to { packet, lengthInfo, _, _, arrivedAt            -> searchOwnNickname(packet, lengthInfo, arrivedAt) },
-        Opcode.OtherNickname.key to { packet, lengthInfo, _, _, arrivedAt            -> searchOtherNickname(packet, lengthInfo, arrivedAt) },
-        Opcode.OtherNickname2.key to { packet, lengthInfo, _, _, arrivedAt            -> searchOtherNickname(packet, lengthInfo, arrivedAt) },
+        Opcode.OwnNickname.key   to { packet, lengthInfo, extraFlag, _, arrivedAt    -> searchOwnNickname(packet, lengthInfo, extraFlag, arrivedAt) },
+        Opcode.OtherNickname.key to { packet, lengthInfo, extraFlag, _, arrivedAt    -> searchOtherNickname(packet, lengthInfo, extraFlag, arrivedAt) },
+        Opcode.OtherNickname2.key to { packet, lengthInfo, extraFlag, _, arrivedAt    -> searchOtherNickname(packet, lengthInfo, extraFlag, arrivedAt) },
         Opcode.Summon.key        to { packet, _, extraFlag, _, _                     -> parseSummonPacket(packet, extraFlag) },
         Opcode.Damage.key        to { packet, _, extraFlag, epoch, arrivedAt         -> parsingDamage(packet, extraFlag, epoch, arrivedAt) },
         Opcode.DoT.key           to { packet, _, extraFlag, epoch, arrivedAt         -> parseDoTPacket(packet, extraFlag, epoch, arrivedAt) },
@@ -132,8 +132,10 @@ class StreamProcessor() {
         logger.trace("압축 패킷 해제 종료")
     }
 
-    private fun searchOwnNickname(packet: ByteArray, lengthInfo: VarIntOutput, arrivedAt: Long) {
+    private fun searchOwnNickname(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean, arrivedAt: Long) {
         var offset = lengthInfo.length
+        if (extraFlag) offset++
+        if (packet.size < offset + 2) return
         if (packet[offset] != 0x33.toByte()) return
         if (packet[offset + 1] != 0x36.toByte()) return
 
@@ -147,21 +149,31 @@ class StreamProcessor() {
         offset += userInfo.length
         if (offset >= packet.size) return
 
-        if (packet.size < offset + 10) return
+        if (packet.size < offset + 10) {
+            logger.warn("본인 닉네임 패킷이 너무 짧습니다 uid={} extraFlag={}", userInfo.value, extraFlag)
+            return
+        }
         val spliterIdx = findArrayIndex(packet.copyOfRange(offset, offset + 10), 0x07)
-        if (spliterIdx == -1) return
+        if (spliterIdx == -1) {
+            logger.warn("본인 닉네임 패킷에서 구분자(0x07)를 찾지 못했습니다 uid={} extraFlag={}", userInfo.value, extraFlag)
+            return
+        }
         offset += spliterIdx + 1
 
         val nameLengthInfo = readVarInt(packet, offset)
         offset += nameLengthInfo.length
         if (nameLengthInfo.length > 71) return
         if (offset >= packet.size) return
+        if (offset + nameLengthInfo.value > packet.size) return
 
         var server = -1
         var job = -1
         val np = packet.copyOfRange(offset, offset + nameLengthInfo.value)
         val nickname = String(np, Charsets.UTF_8)
-        if (!isValidNickname(nickname)) return
+        if (!isValidNickname(nickname)) {
+            logger.warn("본인 닉네임 문자열이 유효하지 않습니다 uid={} raw={}", userInfo.value, nickname)
+            return
+        }
 
         offset += nameLengthInfo.value
         if (packet.size >= offset + 2) {
@@ -176,12 +188,22 @@ class StreamProcessor() {
             }
         }
         DataManager.saveNickname(userInfo.value, nickname, true, server)
+        if (job >= 0) {
+            DataManager.user(userInfo.value)?.let { user ->
+                if (user.job == null) user.job = JobClass.convertFromCode(job)
+            }
+        }
+        logger.info("본인 닉네임 탐지 uid={} nick={} server={} extraFlag={}", userInfo.value, nickname, server, extraFlag)
         PacketAddonManager.parse(packet, arrivedAt)
     }
 
-    private fun searchOtherNickname(packet: ByteArray, lengthInfo: VarIntOutput, arrivedAt: Long) {
+    private fun searchOtherNickname(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean, arrivedAt: Long) {
         var offset = lengthInfo.length
-
+        if (extraFlag) offset++
+        if (packet.size < offset + 2) return
+        val opcode1 = packet[offset].toInt() and 0xff
+        if (opcode1 != 0x44 && opcode1 != 0x45) return
+        if (packet[offset + 1] != 0x36.toByte()) return
         offset += 2
         if (packet.size < offset) return
 
@@ -261,9 +283,13 @@ class StreamProcessor() {
 //            }
             PacketAddonManager.parse(packet, arrivedAt)
         }
-        println("$nickname, ${userInfo.value}")
         DataManager.saveNickname(userInfo.value, nickname, false, server)
-
+        if (job >= 0) {
+            DataManager.user(userInfo.value)?.let { user ->
+                if (user.job == null) user.job = JobClass.convertFromCode(job)
+            }
+        }
+        logger.info("다른 유저 닉네임 탐지 uid={} nick={} server={} extraFlag={}", userInfo.value, nickname, server, extraFlag)
     }
 
     private fun parseDoTPacket(packet: ByteArray, extraFlag: Boolean, epoch: Long, arrivedAt: Long): Boolean {
@@ -339,11 +365,7 @@ class StreamProcessor() {
         if (pdp.getActorId() != pdp.getTargetId()) {
             pdp.setTimestamp(arrivedAt)
             DataManager.saveDamage(pdp, epoch)
-            val mobCode = DataManager.mobId(pdp.getTargetId()) ?: return true
-            val mob = DataManager.mob(mobCode) ?: return true
-            if (mob.isDummy) {
-                DataManager.touchDummyBattle(pdp.getTargetId(), epoch)
-            }
+            DataManager.touchDummyOrUnmappedBattle(pdp.getTargetId(), epoch)
         }
         return true
 
@@ -584,12 +606,8 @@ class StreamProcessor() {
         if (pdp.getActorId() != pdp.getTargetId()) {
             //추후 hps 를 넣는다면 수정하기
                 pdp.setTimestamp(arrivedAt)
-//                println("mobCode:${DataManager.mobId(pdp.getTargetId())}")
                 DataManager.saveDamage(pdp, epoch)
-                val mobCode = DataManager.mobId(pdp.getTargetId())
-                if (mobCode != null && DataManager.mob(mobCode)?.isDummy == true) {
-                    DataManager.touchDummyBattle(pdp.getTargetId(), epoch)
-                }
+                DataManager.touchDummyOrUnmappedBattle(pdp.getTargetId(), epoch)
         }
         return true
 
