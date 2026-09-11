@@ -65,7 +65,6 @@ const PREVIEW_PLAYERS: Player[] = [
 export function SettingsMeterPreview() {
   const {
     rowHeight,
-    meterWidth,
     meterListOpacity,
     meterOpacity,
     isMinimal,
@@ -75,7 +74,6 @@ export function SettingsMeterPreview() {
   } = useSettingsStore(
     useShallow((s) => ({
       rowHeight: s.rowHeight,
-      meterWidth: s.meterWidth,
       meterListOpacity: s.meterListOpacity,
       meterOpacity: s.meterOpacity,
       isMinimal: s.isMinimal,
@@ -85,22 +83,20 @@ export function SettingsMeterPreview() {
     })),
   );
 
-  const previewWidth = Math.min(Math.max(meterWidth, 280), 360);
   const showTarget = !isMinimal || showTargetInfoInMinimal;
   const showTimer = !isMinimal || showCombatTimerInMinimal;
   const showHeader = !isMinimal;
 
   return (
-    <div className="flex h-full min-h-0 w-[340px] shrink-0 flex-col border-l border-amber-500/15 bg-black/30 px-3 py-3">
+    <div className="flex h-full min-h-0 w-[360px] shrink-0 flex-col border-l border-amber-500/15 bg-black/30 px-3 py-3">
       <div className="mb-2 text-[10px] font-semibold tracking-wide text-amber-200/55">
         실시간 미리보기
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         <div
-          className="pointer-events-none origin-top-left"
+          className="pointer-events-none w-full"
           style={
             {
-              width: previewWidth,
               "--meter-bg": `rgba(11,13,23,${meterOpacity})`,
             } as React.CSSProperties
           }>
