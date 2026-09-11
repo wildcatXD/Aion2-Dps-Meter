@@ -44,28 +44,24 @@ function ResourceChip({ label, value }: { label: string; value: number | null })
   );
 }
 
-export function TrackerOverlay() {
-  const enabled = useSettingsStore((s) => s.trackerOverlayEnabled);
+export function TrackerHud() {
   const codes = useSettingsStore((s) => s.trackedBuffCodes);
   const [status, setStatus] = useState<TrackerStatus>(emptyStatus);
 
   useEffect(() => {
-    if (!enabled) return;
     const tick = () => {
-      const raw = (window as any).javaBridge?.getTrackerStatus?.();
+      const raw = window.javaBridge?.getTrackerStatus?.();
       setStatus(parseStatus(raw));
     };
     tick();
     const id = setInterval(tick, 400);
     return () => clearInterval(id);
-  }, [enabled]);
-
-  if (!enabled) return null;
+  }, []);
 
   const byCode = new Map(status.buffs.map((buff) => [buff.skillCode, buff]));
 
   return (
-    <div className="mt-2 flex flex-wrap items-end gap-1.5">
+    <div className="flex flex-wrap items-end gap-1.5 rounded-lg border border-amber-500/20 bg-[#0b0d17]/80 px-2 py-1.5">
       <ResourceChip label="오드" value={status.odeEnergy} />
       <ResourceChip label="열쇠" value={status.shugoKeys} />
       {codes.map((code) => {

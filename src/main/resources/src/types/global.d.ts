@@ -26,6 +26,8 @@ declare global {
       isClickThrough?: () => boolean;
       getClickThroughHotkey?: () => string;
       updateClickThroughHotkey?: (modifiers: number, vkCode: number) => void;
+      setTrackerOverlayEnabled?: (enabled: boolean) => void;
+      fitTrackerWindow?: (width: number, height: number) => void;
       fitToCurrentMonitor?: () => void;
       onMonitorFit?: (monitorX: number, monitorY: number, width: number, height: number) => void;
       onMeterPositionChanged?: (x: number, y: number) => void;

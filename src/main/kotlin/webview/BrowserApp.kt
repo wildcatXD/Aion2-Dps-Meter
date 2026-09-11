@@ -137,6 +137,21 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             return overlayJson.encodeToString(DataManager.trackerStatus())
         }
 
+        fun setTrackerOverlayEnabled(enabled: Boolean) {
+            Platform.runLater {
+                if (enabled) showTrackerOverlay() else hideTrackerOverlay()
+            }
+        }
+
+        fun fitTrackerWindow(width: Double, height: Double) {
+            val tracker = trackerStage ?: return
+            if (stage !== tracker) return
+            Platform.runLater {
+                tracker.width = width.coerceIn(80.0, 900.0)
+                tracker.height = height.coerceIn(40.0, 280.0)
+            }
+        }
+
         fun isDebuggingMode(): Boolean {
             return debugMode
         }
@@ -293,6 +308,10 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     private var isClickThrough = false
 
     private var overlayHwnd: WinDef.HWND? = null
+    private var trackerStage: Stage? = null
+    private var trackerEngine: WebEngine? = null
+    private var trackerHwnd: WinDef.HWND? = null
+    private var trackerEnabled = false
 
     private val debugMode = false
 
@@ -327,13 +346,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
 
         try {
-            val pageField = engine.javaClass.getDeclaredField("page")
-            pageField.isAccessible = true
-            val page = pageField.get(engine)
-
-            val setBgMethod = page.javaClass.getMethod("setBackgroundColor", Int::class.javaPrimitiveType)
-            setBgMethod.isAccessible = true
-            setBgMethod.invoke(page, 0)
+            applyTransparentPage(engine)
         } catch (e: Exception) {
             logger.error("리플렉션 실패", e)
         }
@@ -341,7 +354,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         stage.initStyle(StageStyle.TRANSPARENT)
         stage.scene = scene
         stage.isAlwaysOnTop = true
-        stage.title = "Bit Dps Overlay"
+        stage.title = MAIN_TITLE
         applyVirtualDesktop(stage, webView, screenBounds)
 
         Screen.getScreens().addListener(ListChangeListener<Screen> {
@@ -352,7 +365,11 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
         stage.show()
         logger.info("오버레이 창 표시 version={} {}x{} origin=({}, {})", version, screenBounds.width, screenBounds.height, screenBounds.minX, screenBounds.minY)
-        applyOverlayWindowStyle(stage.title)
+        bindOverlayHwnd(MAIN_TITLE) { overlayHwnd = it }
+
+        if (PropertyHandler.getProperty("trackerOverlayEnabled") == "true") {
+            showTrackerOverlay()
+        }
 
         setupTray(stage)
 
@@ -417,7 +434,10 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
                 val shouldShow = aionFocused || isSelfFocused()
                 Platform.runLater {
-                    stage.opacity = if (shouldShow) 1.0 else 0.0
+                    val opacity = if (shouldShow) 1.0 else 0.0
+                    stage.opacity = opacity
+                    if (trackerEnabled) trackerStage?.opacity = opacity
+                    if (shouldShow) raiseOverlays()
                 }
             }
         }
@@ -469,42 +489,106 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     }
 
 
-    private fun applyOverlayWindowStyle(title: String) {
-        val GWL_EXSTYLE = -20
-        val WS_EX_TOOLWINDOW = 0x00000080
-        val WS_EX_APPWINDOW = 0x00040000
-        val SWP_NOMOVE = 0x0002
-        val SWP_NOSIZE = 0x0001
-        val SWP_NOZORDER = 0x0004
-        val SWP_FRAMECHANGED = 0x0020
-        val user32 = User32.INSTANCE
-        val hwnd = user32.FindWindow(null, title) ?: return
-        overlayHwnd = hwnd
-        val exStyle = user32.GetWindowLong(hwnd, GWL_EXSTYLE)
-        user32.SetWindowLong(hwnd, GWL_EXSTYLE,
-            (exStyle or WS_EX_TOOLWINDOW) and WS_EX_APPWINDOW.inv()
-        )
-        user32.SetWindowPos(hwnd, null, 0, 0, 0, 0,
-            SWP_NOMOVE or SWP_NOSIZE or SWP_NOZORDER or SWP_FRAMECHANGED)
+    private fun applyTransparentPage(target: WebEngine) {
+        val pageField = target.javaClass.getDeclaredField("page")
+        pageField.isAccessible = true
+        val page = pageField.get(target)
+        val setBgMethod = page.javaClass.getMethod("setBackgroundColor", Int::class.javaPrimitiveType)
+        setBgMethod.isAccessible = true
+        setBgMethod.invoke(page, 0)
+    }
+
+    private fun bindOverlayHwnd(title: String, store: (WinDef.HWND) -> Unit) {
+        val hwnd = OverlayTopMost.find(title) ?: run {
+            logger.warn("오버레이 HWND를 찾지 못했습니다: {}", title)
+            return
+        }
+        store(hwnd)
+        OverlayTopMost.applyToolWindowAndTopMost(hwnd)
+        if (isClickThrough) OverlayTopMost.setClickThrough(hwnd, true)
+    }
+
+    private fun raiseOverlays() {
+        overlayHwnd?.let { OverlayTopMost.raise(it) }
+        trackerHwnd?.let { OverlayTopMost.raise(it) }
+    }
+
+    private fun showTrackerOverlay() {
+        if (trackerStage == null) createTrackerStage()
+        val overlay = trackerStage ?: return
+        overlay.x = PropertyHandler.getProperty("trackerX")?.toDoubleOrNull() ?: 80.0
+        overlay.y = PropertyHandler.getProperty("trackerY")?.toDoubleOrNull() ?: 120.0
+        overlay.opacity = 1.0
+        overlay.show()
+        overlay.isAlwaysOnTop = true
+        trackerEnabled = true
+        Platform.runLater {
+            bindOverlayHwnd(TRACKER_TITLE) { trackerHwnd = it }
+            raiseOverlays()
+        }
+        logger.info("버프 추적 창 표시 ({}, {})", overlay.x, overlay.y)
+    }
+
+    private fun hideTrackerOverlay() {
+        trackerEnabled = false
+        trackerStage?.hide()
+        trackerHwnd = null
+    }
+
+    private fun createTrackerStage() {
+        val overlay = Stage()
+        val webView = WebView()
+        val trackerWebEngine = webView.engine
+        val html = javaClass.getResource("/dist/index.html")?.toExternalForm()
+        if (html == null) {
+            logger.error("추적 오버레이 HTML을 찾지 못했습니다")
+            return
+        }
+        trackerWebEngine.load("$html#tracker")
+        val bridge = JSBridge(overlay, hostServices)
+        trackerWebEngine.loadWorker.stateProperty().addListener { _, _, newState ->
+            if (newState == Worker.State.SUCCEEDED) {
+                val window = trackerWebEngine.executeScript("window") as JSObject
+                window.setMember("javaBridge", bridge)
+                if (isClickThrough) {
+                    trackerWebEngine.executeScript("onClickThroughChanged(true)")
+                }
+            }
+        }
+        try {
+            applyTransparentPage(trackerWebEngine)
+        } catch (e: Exception) {
+            logger.error("추적 창 투명 배경 설정 실패", e)
+        }
+        val scene = Scene(webView, 240.0, 64.0)
+        scene.fill = Color.TRANSPARENT
+        overlay.initStyle(StageStyle.TRANSPARENT)
+        overlay.scene = scene
+        overlay.isAlwaysOnTop = true
+        overlay.title = TRACKER_TITLE
+        overlay.isResizable = false
+        webView.prefWidthProperty().bind(overlay.widthProperty())
+        webView.prefHeightProperty().bind(overlay.heightProperty())
+        trackerStage = overlay
+        trackerEngine = trackerWebEngine
     }
 
     private fun setClickThrough(enable: Boolean) {
-        val hwnd = overlayHwnd ?: return
-        val GWL_EXSTYLE = -20
-        val WS_EX_LAYERED = 0x00080000
-        val WS_EX_TRANSPARENT = 0x00000020
-        val user32 = User32.INSTANCE
-        val exStyle = user32.GetWindowLong(hwnd, GWL_EXSTYLE)
-        val newStyle = if (enable) {
-            exStyle or WS_EX_LAYERED or WS_EX_TRANSPARENT
-        } else {
-            (exStyle or WS_EX_LAYERED) and WS_EX_TRANSPARENT.inv()
-        }
-        user32.SetWindowLong(hwnd, GWL_EXSTYLE, newStyle)
         isClickThrough = enable
+        overlayHwnd?.let { OverlayTopMost.setClickThrough(it, enable) }
+        trackerHwnd?.let { OverlayTopMost.setClickThrough(it, enable) }
+        val script = "onClickThroughChanged($enable)"
         Platform.runLater {
-            engine.executeScript("onClickThroughChanged($enable)")
+            try {
+                engine.executeScript(script)
+            } catch (_: Exception) {
+            }
+            try {
+                trackerEngine?.executeScript(script)
+            } catch (_: Exception) {
+            }
         }
+        raiseOverlays()
     }
 
     private fun setupTray(stage: Stage) {
@@ -594,7 +678,10 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
     private fun hideToTray(stage: Stage) {
         isVisible = false
-        Platform.runLater { stage.opacity = 0.0 }
+        Platform.runLater {
+            stage.opacity = 0.0
+            trackerStage?.opacity = 0.0
+        }
     }
 
     private fun showFromTray(stage: Stage) {
@@ -602,7 +689,14 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         aionEverFocused = false
         Platform.runLater {
             stage.opacity = 1.0
+            if (trackerEnabled) trackerStage?.opacity = 1.0
+            raiseOverlays()
         }
+    }
+
+    companion object {
+        const val MAIN_TITLE = "Bit Dps Overlay"
+        const val TRACKER_TITLE = "Bit Buff Overlay"
     }
 
 }
