@@ -177,9 +177,9 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             return overlayJson.encodeToString(dpsCalculator.getBuffOperatingRate(targetId,report.battleStart,report.battleEnd))
         }
 
-        fun upload(idx: Int): Boolean {
-            val log = DataManager.battleLog(idx) ?: return false
-            return UploadManager.upload(log)
+        fun upload(idx: Int): String {
+            val log = DataManager.battleLog(idx) ?: return ""
+            return UploadManager.upload(log) ?: ""
         }
 
         fun getVersion(): String {

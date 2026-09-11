@@ -55,7 +55,7 @@ export function GuildPairSettings() {
   return (
     <SettingsItem
       title="길드 웹 연동"
-      description="웹의 미터기 연동 페이지에서 코드를 만든 뒤 여기에 입력합니다. 공지·일정 참여·아그로·필드보스 알림만 오고, 전투기록 업로드는 아직 없습니다.">
+      description="웹의 미터기 연동 페이지에서 코드를 만든 뒤 여기에 입력합니다. 공지·일정 참여·아그로·필드보스 알림과 전투기록 업로드에 씁니다.">
       <SettingsRow
         title="웹 주소"
         align="start"
