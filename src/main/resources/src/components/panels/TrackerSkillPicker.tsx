@@ -22,7 +22,7 @@ export function TrackerSkillPicker() {
   return (
     <div className="space-y-3 pt-1">
       <p className="text-[11px] opacity-50">
-        고른 스킬만 추적합니다. 최대 {MAX_TRACKED}개. 지금은 본인에게 걸린 버프의 남은 지속시간입니다.
+        고른 스킬만 추적합니다. 최대 {MAX_TRACKED}개. 미터기와 다른 창에 뜨며, 지금은 본인 버프의 남은 지속시간입니다.
       </p>
       {GROUPED_BY_JOB.map(({ job, normalSkills, stigmaSkills }) => {
         const skills = [...normalSkills, ...stigmaSkills];

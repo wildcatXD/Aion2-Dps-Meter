@@ -164,6 +164,9 @@ interface SettingsState {
   setTrackerOverlayEnabled: (v: boolean) => void;
   trackedBuffCodes: number[];
   setTrackedBuffCodes: (codes: number[]) => void;
+  trackerX: number;
+  trackerY: number;
+  setTrackerPosition: (x: number, y: number) => void;
 }
 
 const jb = () => (window as any).javaBridge;
@@ -222,6 +225,8 @@ const defaultSettings = {
   guildAlertsEnabled: true,
   trackerOverlayEnabled: false,
   trackedBuffCodes: [] as number[],
+  trackerX: 80,
+  trackerY: 120,
 };
 
 export const useSettingsStore = create<SettingsState>((set) => {
@@ -354,6 +359,8 @@ export const useSettingsStore = create<SettingsState>((set) => {
       guildAlertsEnabled: j.loadProps?.("guildAlertsEnabled") === "false" ? false : true,
       trackerOverlayEnabled: j.loadProps?.("trackerOverlayEnabled") === "true",
       trackedBuffCodes: Array.isArray(savedTracked) ? savedTracked.slice(0, 8) : defaultSettings.trackedBuffCodes,
+      trackerX: Number(j.loadProps?.("trackerX")) || defaultSettings.trackerX,
+      trackerY: Number(j.loadProps?.("trackerY")) || defaultSettings.trackerY,
 
       isLoaded: true,
     });
@@ -415,6 +422,8 @@ export const useSettingsStore = create<SettingsState>((set) => {
     guildAlertsEnabled: defaultSettings.guildAlertsEnabled,
     trackerOverlayEnabled: defaultSettings.trackerOverlayEnabled,
     trackedBuffCodes: defaultSettings.trackedBuffCodes,
+    trackerX: defaultSettings.trackerX,
+    trackerY: defaultSettings.trackerY,
 
     // setHotkey: (hotkey) => {
     //   set({ hotkey });
@@ -640,6 +649,12 @@ export const useSettingsStore = create<SettingsState>((set) => {
     setTrackerOverlayEnabled: (trackerOverlayEnabled) => {
       set({ trackerOverlayEnabled });
       jb()?.saveProps?.("trackerOverlayEnabled", String(trackerOverlayEnabled));
+      jb()?.setTrackerOverlayEnabled?.(trackerOverlayEnabled);
+    },
+    setTrackerPosition: (trackerX, trackerY) => {
+      set({ trackerX, trackerY });
+      jb()?.saveProps?.("trackerX", String(trackerX));
+      jb()?.saveProps?.("trackerY", String(trackerY));
     },
     setTrackedBuffCodes: (trackedBuffCodes) => {
       const next = trackedBuffCodes.slice(0, 8);

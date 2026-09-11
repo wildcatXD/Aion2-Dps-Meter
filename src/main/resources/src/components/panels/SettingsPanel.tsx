@@ -324,7 +324,7 @@ export const SettingsPanel = ({
           </SettingsRow>
           <SettingsRow
             title="추적 오버레이"
-            description="필요할 때만 켭니다. 고른 스킬의 버프 남은 시간, 오드에너지·슈고페스타 열쇠 칸.">
+            description="미터기와 다른 창으로 뜹니다. 따로 드래그할 수 있고, 게임 위에 고정합니다. 고른 스킬의 버프 남은 시간, 오드·열쇠 칸.">
             <Switch
               checked={trackerOverlayEnabled}
               onCheckedChange={setTrackerOverlayEnabled}

@@ -18,7 +18,6 @@ import { cn } from "@/lib/utils";
 import { DebugConsole } from "./components/DebugConsole";
 import { useGuildInbox } from "@/hooks/useGuildInbox";
 import { OverlayToasts } from "@/components/OverlayToasts";
-import { TrackerOverlay } from "@/components/TrackerOverlay";
 import lock from "@/assets/lock.png";
 export default function App() {
   const {
@@ -258,7 +257,6 @@ export default function App() {
               combatTime={formatBattleTime(battleTime)}
             />
           )}
-          <TrackerOverlay />
         </div>
         {headerPosition === "bottom" && (
           <div className="mt-2">
