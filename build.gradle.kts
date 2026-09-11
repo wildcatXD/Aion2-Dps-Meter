@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.tbread"
-version = "1.9.6"
+version = "1.9.7"
 
 val frontendDir = layout.projectDirectory.dir("src/main/resources")
 val frontendBuildInputs = fileTree(frontendDir) {

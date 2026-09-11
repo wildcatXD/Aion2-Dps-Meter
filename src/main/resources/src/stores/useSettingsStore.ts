@@ -162,6 +162,8 @@ interface SettingsState {
   setGuildAlertsEnabled: (v: boolean) => void;
   trackerOverlayEnabled: boolean;
   setTrackerOverlayEnabled: (v: boolean) => void;
+  showEmptyResourceChips: boolean;
+  setShowEmptyResourceChips: (v: boolean) => void;
   trackedBuffCodes: number[];
   setTrackedBuffCodes: (codes: number[]) => void;
   trackerX: number;
@@ -211,8 +213,8 @@ const defaultSettings = {
   sidePanelX: 0,
   sidePanelY: 0,
   sidePanelPositioned: false,
-  settingsPanelWidth: 380,
-  settingsPanelHeight: 640,
+  settingsPanelWidth: 960,
+  settingsPanelHeight: 680,
   historyPanelWidth: 380,
   historyPanelHeight: 520,
   updatePanelWidth: 300,
@@ -224,6 +226,7 @@ const defaultSettings = {
   guildLinkedName: "",
   guildAlertsEnabled: true,
   trackerOverlayEnabled: false,
+  showEmptyResourceChips: false,
   trackedBuffCodes: [] as number[],
   trackerX: 80,
   trackerY: 120,
@@ -339,8 +342,10 @@ export const useSettingsStore = create<SettingsState>((set) => {
       sidePanelX: hasSavedSidePanelX ? Number(savedSidePanelXRaw) : defaultSettings.sidePanelX,
       sidePanelY: hasSavedSidePanelY ? Number(savedSidePanelYRaw) : defaultSettings.sidePanelY,
       sidePanelPositioned,
-      settingsPanelWidth:
-        Number(j.loadProps?.("settingsPanelWidth")) || defaultSettings.settingsPanelWidth,
+      settingsPanelWidth: (() => {
+        const n = Number(j.loadProps?.("settingsPanelWidth")) || defaultSettings.settingsPanelWidth;
+        return n < 720 ? defaultSettings.settingsPanelWidth : n;
+      })(),
       settingsPanelHeight:
         Number(j.loadProps?.("settingsPanelHeight")) || defaultSettings.settingsPanelHeight,
       historyPanelWidth:
@@ -358,6 +363,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
       guildLinkedName: j.loadProps?.("guildLinkedName") || defaultSettings.guildLinkedName,
       guildAlertsEnabled: j.loadProps?.("guildAlertsEnabled") === "false" ? false : true,
       trackerOverlayEnabled: j.loadProps?.("trackerOverlayEnabled") === "true",
+      showEmptyResourceChips: j.loadProps?.("showEmptyResourceChips") === "true",
       trackedBuffCodes: Array.isArray(savedTracked) ? savedTracked.slice(0, 8) : defaultSettings.trackedBuffCodes,
       trackerX: Number(j.loadProps?.("trackerX")) || defaultSettings.trackerX,
       trackerY: Number(j.loadProps?.("trackerY")) || defaultSettings.trackerY,
@@ -421,6 +427,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
     guildLinkedName: defaultSettings.guildLinkedName,
     guildAlertsEnabled: defaultSettings.guildAlertsEnabled,
     trackerOverlayEnabled: defaultSettings.trackerOverlayEnabled,
+    showEmptyResourceChips: defaultSettings.showEmptyResourceChips,
     trackedBuffCodes: defaultSettings.trackedBuffCodes,
     trackerX: defaultSettings.trackerX,
     trackerY: defaultSettings.trackerY,
@@ -650,6 +657,10 @@ export const useSettingsStore = create<SettingsState>((set) => {
       set({ trackerOverlayEnabled });
       jb()?.saveProps?.("trackerOverlayEnabled", String(trackerOverlayEnabled));
       jb()?.setTrackerOverlayEnabled?.(trackerOverlayEnabled);
+    },
+    setShowEmptyResourceChips: (showEmptyResourceChips) => {
+      set({ showEmptyResourceChips });
+      jb()?.saveProps?.("showEmptyResourceChips", String(showEmptyResourceChips));
     },
     setTrackerPosition: (trackerX, trackerY) => {
       set({ trackerX, trackerY });

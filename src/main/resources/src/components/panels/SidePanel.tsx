@@ -40,7 +40,7 @@ const clampPanelPosition = (x: number, y: number, width: number, height: number)
 
 const SIDE_SHELL = {
   details: `${SIDE_OUTER} py-4 px-7 text-white font-bold`,
-  settings: `${SIDE_OUTER} pl-5 pr-3  pb-6 font-bold rounded-lg`,
+  settings: `${SIDE_OUTER} font-bold rounded-lg`,
   history: `${SIDE_OUTER} text-white font-bold rounded-lg p-4`,
   guild: `${SIDE_OUTER} text-white font-bold rounded-lg p-4`,
   update: `${SIDE_OUTER} font-semibold`,
