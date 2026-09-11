@@ -214,7 +214,6 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                     val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "bit-dps-meter").also { it.mkdirs() }
                     val msiFile = java.io.File(tempDir, "bit-dps-meter-update.msi")
                     val logFile = java.io.File(tempDir, "install.log")
-                    val scriptFile = java.io.File(tempDir, "apply-update.cmd")
 
                     val connection = java.net.URI(msiUrl).toURL().openConnection() as java.net.HttpURLConnection
                     connection.connect()
@@ -242,22 +241,27 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                     Platform.runLater { engine.executeScript("onInstallStarting()") }
 
                     val exePath = SilentUpdateScript.resolveLauncherPath(currentExePath)
-                    scriptFile.writeText(
-                        SilentUpdateScript.render(
-                            currentPid,
-                            msiFile.absolutePath,
-                            exePath,
-                            logFile.absolutePath,
-                        ),
+                    val scriptBody = SilentUpdateScript.render(
+                        currentPid,
+                        msiFile.absolutePath,
+                        exePath,
+                        logFile.absolutePath,
                     )
+                    val vbsFile = java.io.File(tempDir, "apply-update.vbs")
+                    SilentUpdateScript.writeUtf16LeBom(vbsFile, scriptBody)
 
-                    // start "" 로 새 콘솔 없이 분리된 프로세스를 만듭니다. 경로 인자는
-                    // start가 공백에서 쪼개므로 스크립트 파일 안에 적어 두고, 여기선
-                    // 스크립트만 실행합니다.
-                    ProcessBuilder(
-                        "cmd.exe", "/c", "start", "/min", "",
-                        scriptFile.absolutePath,
-                    ).start()
+                    // cmd start /min 은 검은 콘솔이 남고, UTF-8 배치는 한글 경로를
+                    // 깨뜨렸습니다. 콘솔 없는 wscript + UTF-16 VBS 로 숨겨서 돌립니다.
+                    val hidden = ProcessBuilder(
+                        "wscript.exe",
+                        "//B",
+                        "//nologo",
+                        vbsFile.absolutePath,
+                    )
+                    hidden.directory(tempDir)
+                    hidden.redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    hidden.redirectError(ProcessBuilder.Redirect.DISCARD)
+                    hidden.start()
 
                     logger.info("업데이트 헬퍼를 실행했습니다. 미터기를 종료한 뒤 무인 설치가 진행됩니다: ${logFile.absolutePath}")
                     Thread.sleep(800)
