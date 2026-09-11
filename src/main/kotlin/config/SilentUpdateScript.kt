@@ -9,9 +9,13 @@ import java.io.File
  * UTF-8 배치 + 한글 %TEMP% 경로는 msiexec 가 파일을 못 찾아 설치가 실패했습니다.
  * `timeout /t` 는 숨긴 콘솔에서 멈추기도 합니다.
  *
+ * 1.9.4 헬퍼는 콘솔 없는 wscript 로 바꿨지만, 설치가 실패해도(권한 부족·파일 잠금)
+ * 예전 exe 를 그대로 다시 켰습니다. Program Files 설치본은 `/qn` 만으로는 1603 이
+ * 나고, 그때마다 업데이트 알림이 반복됩니다. 성공한 뒤에는 예전 경로보다
+ * 표준 설치 경로를 먼저 켭니다.
+ *
  * 이 헬퍼는 콘솔이 없는 wscript + WMI 대기로 돌리고, 스크립트 파일은
- * UTF-16 LE BOM 으로 써서 한글 경로를 유지합니다. 설치가 실패해도 이전
- * exe 를 다시 켭니다.
+ * UTF-16 LE BOM 으로 써서 한글 경로를 유지합니다.
  */
 object SilentUpdateScript {
     const val LAUNCHER_EXE = "bit-dps-meter.exe"
@@ -22,7 +26,7 @@ object SilentUpdateScript {
         val msiLog = "$logPath.msi.txt"
         val body = """
             Option Explicit
-            Dim sh, fso, pid, msi, exe, logPath, msiLog, tries, ec, launch
+            Dim sh, fso, pid, msi, exe, logPath, msiLog, elevLog, errFile, tries, ec, launch
             Set sh = CreateObject("Wscript.Shell")
             Set fso = CreateObject("Scripting.FileSystemObject")
             pid = $waitPid
@@ -30,6 +34,8 @@ object SilentUpdateScript {
             exe = "${escapeForVbs(launcher)}"
             logPath = "${escapeForVbs(logPath)}"
             msiLog = "${escapeForVbs(msiLog)}"
+            elevLog = msiLog & ".elev.txt"
+            errFile = sh.ExpandEnvironmentStrings("%APPDATA%\Aion2DpsMeter\update-last-error.txt")
 
             Sub LogLine(msg)
               On Error Resume Next
@@ -50,11 +56,16 @@ object SilentUpdateScript {
 
             Sub KillMeter()
               On Error Resume Next
-              Dim wmi, col, p
+              Dim wmi, col, p, path
               Set wmi = GetObject("winmgmts:\\.\root\cimv2")
-              Set col = wmi.ExecQuery("SELECT * FROM Win32_Process WHERE Name=" & Chr(34) & "bit-dps-meter.exe" & Chr(34))
+              Set col = wmi.ExecQuery("SELECT ProcessId, Name, ExecutablePath FROM Win32_Process")
               For Each p In col
-                p.Terminate
+                If LCase(p.Name) = "bit-dps-meter.exe" Then
+                  p.Terminate
+                ElseIf LCase(p.Name) = "javaw.exe" Or LCase(p.Name) = "java.exe" Then
+                  path = LCase("" & p.ExecutablePath)
+                  If InStr(path, "\bit-dps-meter\") > 0 Then p.Terminate
+                End If
               Next
             End Sub
 
@@ -63,6 +74,109 @@ object SilentUpdateScript {
               FileExists = False
               If path <> "" Then FileExists = fso.FileExists(path)
             End Function
+
+            Function InstallOk(code)
+              InstallOk = (code = 0 Or code = 3010)
+            End Function
+
+            Function NeedsElevation(code)
+              NeedsElevation = (code = 1603 Or code = 1625 Or code = 1923)
+            End Function
+
+            Function FindInstalledExe()
+              Dim c(3), i
+              FindInstalledExe = ""
+              c(0) = sh.ExpandEnvironmentStrings("%ProgramFiles%\bit-dps-meter\bit-dps-meter.exe")
+              c(1) = sh.ExpandEnvironmentStrings("%ProgramFiles(x86)%\bit-dps-meter\bit-dps-meter.exe")
+              c(2) = sh.ExpandEnvironmentStrings("%LocalAppData%\Programs\bit-dps-meter\bit-dps-meter.exe")
+              c(3) = sh.ExpandEnvironmentStrings("%LocalAppData%\bit-dps-meter\bit-dps-meter.exe")
+              For i = 0 To 3
+                If FileExists(c(i)) Then
+                  FindInstalledExe = c(i)
+                  Exit Function
+                End If
+              Next
+            End Function
+
+            Function MsiexecStillRunning()
+              On Error Resume Next
+              Dim wmi, col, p, cmd
+              MsiexecStillRunning = False
+              Set wmi = GetObject("winmgmts:\\.\root\cimv2")
+              Set col = wmi.ExecQuery("SELECT CommandLine FROM Win32_Process WHERE Name=" & Chr(34) & "msiexec.exe" & Chr(34))
+              For Each p In col
+                cmd = LCase("" & p.CommandLine)
+                If InStr(cmd, LCase(msi)) > 0 Then
+                  MsiexecStillRunning = True
+                  Exit Function
+                End If
+              Next
+            End Function
+
+            Function ParseMsiexecLogFormat(path, fmt)
+              On Error Resume Next
+              Dim ts, line, last
+              ParseMsiexecLogFormat = -1
+              last = ""
+              If Not FileExists(path) Then Exit Function
+              Err.Clear
+              Set ts = fso.OpenTextFile(path, 1, False, fmt)
+              If Err.Number <> 0 Then
+                Err.Clear
+                Exit Function
+              End If
+              Do Until ts.AtEndOfStream
+                line = ts.ReadLine
+                If InStr(line, "Installation success or error status:") > 0 Then last = line
+              Loop
+              ts.Close
+              If last <> "" Then ParseMsiexecLogFormat = CLng(Trim(Mid(last, InStrRev(last, ":") + 1)))
+            End Function
+
+            Function ParseMsiexecLog(path)
+              Dim status
+              ParseMsiexecLog = -1
+              status = ParseMsiexecLogFormat(path, -1)
+              If status >= 0 Then
+                ParseMsiexecLog = status
+                Exit Function
+              End If
+              ParseMsiexecLog = ParseMsiexecLogFormat(path, 0)
+            End Function
+
+            Sub RunElevatedMsiexec()
+              On Error Resume Next
+              Dim app, waited, parsed
+              Set app = CreateObject("Shell.Application")
+              LogLine "[apply-update] msiexec elevated runas"
+              app.ShellExecute "msiexec.exe", "/i " & Chr(34) & msi & Chr(34) & " /qn /norestart REBOOT=ReallySuppress /l*v " & Chr(34) & elevLog & Chr(34), "", "runas", 0
+              WScript.Sleep 2000
+              waited = 0
+              Do While MsiexecStillRunning() And waited < 180
+                WScript.Sleep 1000
+                waited = waited + 1
+              Loop
+              parsed = ParseMsiexecLog(elevLog)
+              If parsed >= 0 Then
+                ec = parsed
+              End If
+              LogLine "[apply-update] msiexec elevated exit " & ec
+            End Sub
+
+            Sub ClearUpdateError()
+              On Error Resume Next
+              If FileExists(errFile) Then fso.DeleteFile errFile, True
+            End Sub
+
+            Sub WriteUpdateError(msg)
+              On Error Resume Next
+              Dim ts, dir
+              dir = fso.GetParentFolderName(errFile)
+              If dir <> "" And Not fso.FolderExists(dir) Then fso.CreateFolder dir
+              Set ts = fso.OpenTextFile(errFile, 2, True, -1)
+              ts.WriteLine msg
+              ts.Close
+            End Sub
 
             Do While ProcessExists(pid)
               WScript.Sleep 1000
@@ -78,19 +192,25 @@ object SilentUpdateScript {
               LogLine "[apply-update] msiexec try " & tries
               ec = sh.Run("msiexec.exe /i " & Chr(34) & msi & Chr(34) & " /qn /norestart REBOOT=ReallySuppress /l*v " & Chr(34) & msiLog & Chr(34), 0, True)
               LogLine "[apply-update] msiexec exit " & ec
-              If ec = 0 Or ec = 3010 Then Exit Do
+              If InstallOk(ec) Then Exit Do
               If tries >= 3 Then Exit Do
               WScript.Sleep 3000
             Loop
 
-            If ec <> 0 And ec <> 3010 Then
-              LogLine "[apply-update] silent install failed"
+            If Not InstallOk(ec) And NeedsElevation(ec) Then
+              RunElevatedMsiexec
             End If
 
-            launch = exe
-            If Not FileExists(launch) Then launch = sh.ExpandEnvironmentStrings("%ProgramFiles%\bit-dps-meter\bit-dps-meter.exe")
-            If Not FileExists(launch) Then launch = sh.ExpandEnvironmentStrings("%ProgramFiles(x86)%\bit-dps-meter\bit-dps-meter.exe")
-            If Not FileExists(launch) Then launch = sh.ExpandEnvironmentStrings("%LocalAppData%\bit-dps-meter\bit-dps-meter.exe")
+            If InstallOk(ec) Then
+              LogLine "[apply-update] silent install succeeded"
+              ClearUpdateError
+              launch = FindInstalledExe()
+              If launch = "" Then launch = exe
+            Else
+              LogLine "[apply-update] silent install failed"
+              WriteUpdateError "msiexec exit " & ec
+              launch = exe
+            End If
 
             If FileExists(launch) Then
               LogLine "[apply-update] launching " & launch

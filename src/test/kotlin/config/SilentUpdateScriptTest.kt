@@ -31,7 +31,7 @@ class SilentUpdateScriptTest {
     fun neverFallsBackToSetupWizard() {
         val script = SilentUpdateScript.render(1, "a.msi", "a.exe", "a.log")
         val msiexecLines = script.lines().map { it.trim() }.filter {
-            it.contains("msiexec") && !it.contains("LogLine")
+            it.contains("msiexec") && it.contains("/i") && !it.contains("LogLine")
         }
         assertTrue(msiexecLines.isNotEmpty())
         assertTrue(msiexecLines.all { it.contains("/qn") })
@@ -50,11 +50,35 @@ class SilentUpdateScriptTest {
             logPath = """C:\Temp\u.log""",
         )
         assertTrue(script.contains("silent install failed"))
+        assertTrue(script.contains("silent install succeeded"))
         assertTrue(script.contains("""%ProgramFiles%\bit-dps-meter\bit-dps-meter.exe"""))
         assertTrue(script.contains("launcher not found after install"))
         assertTrue(script.contains("sh.Run Chr(34) & launch & Chr(34), 1, False"))
         assertTrue(script.contains("tries >= 3"))
         assertTrue(script.contains("KillMeter"))
+        assertTrue(script.contains("javaw.exe"))
+        assertTrue(script.contains("FindInstalledExe"))
+        assertTrue(script.contains("NeedsElevation"))
+        assertTrue(script.contains("runas"))
+        assertTrue(script.contains("Shell.Application"))
+        assertTrue(script.contains("update-last-error.txt"))
+    }
+
+    @Test
+    fun successfulInstallPrefersInstalledExeOverOldPath() {
+        val script = SilentUpdateScript.render(1, "a.msi", "old.exe", "a.log")
+        val successIdx = script.indexOf("silent install succeeded")
+        val failIdx = script.indexOf("silent install failed")
+        val findIdx = script.indexOf("launch = FindInstalledExe()")
+        assertTrue(successIdx >= 0)
+        assertTrue(failIdx > successIdx)
+        assertTrue(findIdx > successIdx)
+        assertTrue(findIdx < failIdx)
+        val successBlock = script.substring(successIdx, failIdx)
+        assertTrue(successBlock.contains("launch = FindInstalledExe()"))
+        val failBlock = script.substring(failIdx, script.indexOf("End If", failIdx))
+        assertTrue(failBlock.contains("launch = exe"))
+        assertFalse(failBlock.contains("FindInstalledExe"))
     }
 
     @Test
