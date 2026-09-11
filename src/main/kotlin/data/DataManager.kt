@@ -336,7 +336,7 @@ object DataManager {
     mobId 영역
      */
     fun mobId(mobId: Int): Int? {
-        return mobIdRepository.get(mobId)?.code
+        return mobIdRepository.get(mobId)?.code?.takeIf { it > 0 }
     }
 
     fun mobMaxHp(mobId: Int): Int? {

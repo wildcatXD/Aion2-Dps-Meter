@@ -62,6 +62,12 @@ class ParsedDamagePacket {
                 return this.damage
         }
 
+        /** 멀티히트 횟수. 파서가 1회타로 보면 0 또는 1. */
+        fun hitCount(): Int = if (loop > 1) loop else 1
+
+        /** 한 패킷의 실제 합딜. loop를 세고도 합산에 안 넣으면 낫터기 대비 십수 배로 낮게 나옵니다. */
+        fun effectiveDamage(): Long = damage.toLong() * hitCount()
+
         fun getFlag():Int{
                 return this.flag
         }
