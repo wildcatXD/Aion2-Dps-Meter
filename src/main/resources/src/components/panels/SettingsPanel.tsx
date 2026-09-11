@@ -795,7 +795,7 @@ export const SettingsPanel = ({
               </SettingsRow>
               <SettingsRow
                 title="빈 오드·열쇠 칸"
-                description="인벤토리 패킷이 오기 전에는 값이 없습니다. 끄면 빈 칸(—)을 숨깁니다.">
+                description="미터 헤더와 추적 창에 오드·열쇠를 둡니다. 캐릭터가 월드에 들어오면 숫자가 채워지고, 끄면 값이 없을 때 칸을 숨깁니다.">
                 <Switch
                   checked={showEmptyResourceChips}
                   onCheckedChange={setShowEmptyResourceChips}

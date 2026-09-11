@@ -31,12 +31,15 @@ class StreamProcessor() {
         object OtherNickname : Opcode(0x44, 0x36)
         object OtherNickname2 : Opcode(0x45, 0x36)
         object Summon        : Opcode(0x41, 0x36)
+        object NpcSpawn      : Opcode(0x40, 0x36)
         object Damage        : Opcode(0x04, 0x38)
         object DoT           : Opcode(0x05, 0x38)
         object BuffApply     : Opcode(0x2A, 0x38)
         object BuffApply2    : Opcode(0x2B, 0x38)
         object BattleToggle  : Opcode(0x21, 0x8D)
         object RemainHp      : Opcode(0x00, 0x8D)
+        object OdeEnergy     : Opcode(0x0C, 0x61)
+        object StatsSnapshot : Opcode(0x0B, 0x61)
         object JoinRequest   : Opcode(0x07, 0x97)
         object CancelJoin    : Opcode(0x25, 0x97)
         object AdmitJoin     : Opcode(0x0B, 0x97)
@@ -52,12 +55,15 @@ class StreamProcessor() {
         Opcode.OtherNickname.key to { packet, lengthInfo, extraFlag, _, arrivedAt    -> searchOtherNickname(packet, lengthInfo, extraFlag, arrivedAt) },
         Opcode.OtherNickname2.key to { packet, lengthInfo, extraFlag, _, arrivedAt    -> searchOtherNickname(packet, lengthInfo, extraFlag, arrivedAt) },
         Opcode.Summon.key        to { packet, _, extraFlag, _, _                     -> parseSummonPacket(packet, extraFlag) },
+        Opcode.NpcSpawn.key      to { packet, _, extraFlag, _, _                     -> parseSummonPacket(packet, extraFlag) },
         Opcode.Damage.key        to { packet, _, extraFlag, epoch, arrivedAt         -> parsingDamage(packet, extraFlag, epoch, arrivedAt) },
         Opcode.DoT.key           to { packet, _, extraFlag, epoch, arrivedAt         -> parseDoTPacket(packet, extraFlag, epoch, arrivedAt) },
         Opcode.BuffApply.key     to { packet, lengthInfo, extraFlag, _, arrivedAt    -> parseBuffPacket(packet, lengthInfo, extraFlag, arrivedAt) },
         Opcode.BuffApply2.key    to { packet, lengthInfo, extraFlag, _, arrivedAt    -> parseBuffPacket(packet, lengthInfo, extraFlag, arrivedAt) },
         Opcode.BattleToggle.key  to { packet, lengthInfo, extraFlag, _, _            -> parseBattlePacket(packet, lengthInfo, extraFlag) },
         Opcode.RemainHp.key      to { packet, lengthInfo, extraFlag, _, _            -> parseRemainHp(packet, lengthInfo, extraFlag) },
+        Opcode.OdeEnergy.key     to { packet, lengthInfo, extraFlag, _, _            -> parseOdeEnergy(packet, lengthInfo, extraFlag, snapshot = false) },
+        Opcode.StatsSnapshot.key to { packet, lengthInfo, extraFlag, _, _            -> parseOdeEnergy(packet, lengthInfo, extraFlag, snapshot = true) },
         Opcode.JoinRequest.key   to { packet, lengthInfo, extraFlag, _, arrivedAt    -> parseJoinRequestPacket(packet, lengthInfo, extraFlag, arrivedAt) },
         Opcode.CancelJoin.key    to { packet, lengthInfo, extraFlag, _, _            -> parseCancelJoinRequest(packet, lengthInfo, extraFlag) },
         Opcode.AdmitJoin.key     to { packet, lengthInfo, extraFlag, _, _            -> parseAdmitJoinRequest(packet, lengthInfo, extraFlag) },
@@ -540,12 +546,16 @@ class StreamProcessor() {
         }
 
 
-        if (packet[offset] != 0x41.toByte()) return false
+        if (packet[offset] != 0x41.toByte() && packet[offset] != 0x40.toByte()) return false
         if (packet[offset + 1] != 0x36.toByte()) return false
+        val spawnOpcode = packet[offset].toInt() and 0xFF
         offset += 2
 
         val summonInfo = readVarInt(packet, offset)
         if (summonInfo.length < 0) return false
+        offset += summonInfo.length
+
+        trySaveNpcCatalogCode(packet, offset, summonInfo.value)
 
         val codeMarkerIdx = findArrayIndex(packet, 0x00, 0x40, 0x02)
             .takeIf { it != -1 }
@@ -554,12 +564,15 @@ class StreamProcessor() {
             val mobCode = (packet[codeMarkerIdx - 1].toInt() and 0xFF shl 16) or
                     (packet[codeMarkerIdx - 2].toInt() and 0xFF shl 8) or
                     (packet[codeMarkerIdx - 3].toInt() and 0xFF)
-            DataManager.saveMobId(summonInfo.value, mobCode)
+            if (isNpcCatalogCode(mobCode)) {
+                DataManager.saveMobId(summonInfo.value, mobCode)
+            }
             if (DataManager.mob(mobCode)?.boss == true) {
                 PacketAddonManager.parsingMobSpawnAddon(packet,codeMarkerIdx,summonInfo.value,mobCode)
-//                println("${summonInfo.value} 스폰, 몬스터명 ${DataManager.mob(mobCode)?.name}")
             }
         }
+
+        if (spawnOpcode == 0x40) return true
 
 
         val keyIdx = findArrayIndex(packet, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
@@ -576,6 +589,60 @@ class StreamProcessor() {
         logger.debug("소환몹 맵핑 성공 {},{}", realActorId, summonInfo.value)
         DataManager.saveSummon(summonInfo.value, realActorId)
         return true
+    }
+
+    private fun isNpcCatalogCode(code: Int): Boolean = code in 2_000_000..2_999_999
+
+    private fun trySaveNpcCatalogCode(packet: ByteArray, afterEntityId: Int, entityId: Int) {
+        if (afterEntityId + 7 > packet.size) return
+        val tag0 = packet[afterEntityId].toInt() and 0xFF
+        val tag1 = packet[afterEntityId + 1].toInt() and 0xFF
+        val tag2 = packet[afterEntityId + 2].toInt() and 0xFF
+        val likelyCarriesCode =
+            ((tag1 == 0x10 || tag1 == 0x20 || tag1 == 0x21 || tag1 == 0x22 || tag1 == 0x30 || tag1 == 0x32) && tag2 == 0x00) ||
+                (tag0 == 0x1C && tag1 == 0x00 && tag2 == 0x00)
+        if (likelyCarriesCode) {
+            val tagged = parseUInt32le(packet, afterEntityId + 3)
+            if (isNpcCatalogCode(tagged)) {
+                DataManager.saveMobId(entityId, tagged)
+                return
+            }
+        }
+        val scanEnd = minOf(afterEntityId + 16, packet.size - 4)
+        var i = afterEntityId
+        while (i <= scanEnd) {
+            val code = parseUInt32le(packet, i)
+            if (isNpcCatalogCode(code) && DataManager.mob(code) != null) {
+                DataManager.saveMobId(entityId, code)
+                return
+            }
+            i++
+        }
+    }
+
+    private fun parseOdeEnergy(
+        packet: ByteArray,
+        lengthInfo: VarIntOutput,
+        extraFlag: Boolean,
+        snapshot: Boolean,
+    ) {
+        var offset = lengthInfo.length
+        if (extraFlag) offset++
+        if (packet.size < offset + 2) return
+        val b1 = packet[offset].toInt() and 0xFF
+        val b2 = packet[offset + 1].toInt() and 0xFF
+        if (snapshot) {
+            if (b1 != 0x0B || b2 != 0x61) return
+        } else if (b1 != 0x0C || b2 != 0x61) {
+            return
+        }
+        val payload = packet.copyOfRange(offset + 2, packet.size)
+        val reading = if (snapshot) {
+            OdeEnergyParser.parseSnapshot(payload, DataManager.odeKnownId())
+        } else {
+            OdeEnergyParser.parseUpdate(payload)
+        } ?: return
+        DataManager.applyOdeEnergy(reading)
     }
 
     private fun parseUInt16le(packet: ByteArray, offset: Int = 0): Int {
