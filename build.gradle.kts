@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.tbread"
-version = "1.9.0"
+version = "1.9.1"
 
 val frontendDir = layout.projectDirectory.dir("src/main/resources")
 val frontendBuildInputs = fileTree(frontendDir) {
@@ -122,7 +122,10 @@ compose.desktop {
                 shortcut = true
                 menu = true
                 menuGroup = "bit-dps-meter"
-                dirChooser = true
+                // 설치 폴더 선택 화면이 있으면 /qn 무인 업그레이드가 실패하고
+                // 예전 헬퍼는 그때 Welcome 마법사를 띄웠습니다. 업그레이드 UUID로
+                // 기존 위치에 덮어쓰므로 폴더 선택은 끕니다.
+                dirChooser = false
             }
             targetFormats(TargetFormat.Msi)
             packageName = "bit-dps-meter"

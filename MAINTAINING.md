@@ -59,9 +59,20 @@ cp json/* src/main/resources/json/
 - 길드 웹의 낫터기 ingest (`/api/admin/notmeter/combat`)를 미터기 업로드로 재사용하지 않습니다.
 - **알림·일정 참여**는 웹 `/meter-link` 일회용 코드 → 미터기 설정의 기기 토큰으로 붙습니다. 오버레이가 30초마다 `GET /api/meter/inbox`를 보고, 참가/취소/공지 읽음/아그로는 `POST /api/meter/actions`입니다.
 - 기기 토큰은 `%APPDATA%\Aion2DpsMeter\settings.properties`의 `guildDeviceToken`에 저장됩니다. 웹에서 기기를 해제하면 오버레이는 401을 받습니다.
-- 전투가 끝나면 `DpsLog.encounter`에 `bit-legion-encounter-v1` JSON 스냅샷이 붙습니다. 전투기록 업로드 API는 아직 없습니다. 다음 단계에서 `UploadAddonImpl`이 이 JSON만 POST 하면 됩니다.
+- 전투가 끝나면 `DpsLog.encounter`에 `bit-legion-encounter-v1` JSON 스냅샷이 붙습니다. 업로드는 기기 토큰으로 `POST /api/meter/encounters`만 씁니다. 낫터기 ingest(`/api/admin/notmeter/combat`)는 재사용하지 않습니다.
 - 스냅샷 플레이어에 `dps`와 실험 `nDps`가 같이 들어 갑니다. 웹 랭킹을 붙일 때 어떤 지표를 쓸지 웹 API에서 고르면 됩니다.
-- 히스토리 패널의 업로드 버튼은 웹 업로드 API가 생긴 뒤에 켭니다.
+
+## 캡처 체크리스트 (오드·열쇠·스킬 쿨)
+
+파서를 먼저 만들지 않습니다. 캡처가 오면 `StreamProcessor`에만 옵코드를 넣고, 이미 있는 `DataManager.odeEnergy` / `shugoKeys` / 추적 오버레이에 숫자를 연결합니다.
+
+| 상황 | 남길 것 |
+| --- | --- |
+| 오드에너지 변동 | 사용·충전 시각, 변하기 전/후 숫자, `app.log` 해당 구간 |
+| 슈고페스타 열쇠 | 획득·사용·인벤 갯수가 보일 때 |
+| 스킬 재사용 대기 | 시전 직후 쿨이 뜨는 구간. 버프 지속시간 패킷(`0x2A/0x2B 0x38`)과 구분 |
+
+캡처 기본값: `206.127.156.0/24` 포트 `13328`. 디버그 모드에서 미확인 패킷 hex가 `app.log`에 남습니다.
 
 ## 이 환경에서 못 하는 일
 
