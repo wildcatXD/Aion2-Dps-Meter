@@ -1,6 +1,6 @@
 package com.tbread
 
-import com.tbread.config.PropertyHandler
+import com.tbread.config.VersionConfig
 import com.tbread.data.DataManager
 import com.tbread.entity.*
 import com.tbread.entity.enums.JobClass
@@ -340,7 +340,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
             )
         }
         return EncounterSnapshot(
-            meterVersion = PropertyHandler.getProperty("version") ?: "unknown",
+            meterVersion = VersionConfig.packagedVersion(),
             battleStart = report.battleStart,
             battleEnd = report.battleEnd,
             durationMs = durationMs,

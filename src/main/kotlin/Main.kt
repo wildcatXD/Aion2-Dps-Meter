@@ -1,6 +1,7 @@
 package com.tbread
 
 import com.tbread.config.PcapCapturerConfig
+import com.tbread.config.SingleInstance
 import com.tbread.config.VersionConfig
 import com.tbread.data.DataManager
 import com.tbread.packet.*
@@ -13,6 +14,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.supervisorScope
+import kotlin.system.exitProcess
 
 fun main() = runBlocking {
     // 이 앱은 콘솔 없는(windowed) 실행 파일로 패키징되어 있어서 System.out/System.err로
@@ -33,6 +35,23 @@ fun main() = runBlocking {
     mainLogger.info("빛 레기온 미터기 시작")
     Thread.setDefaultUncaughtExceptionHandler { t, e ->
         mainLogger.error("처리되지 않은 예외로 쓰레드가 종료되었습니다: ${t.name}", e)
+    }
+
+    if (!SingleInstance.acquire()) {
+        mainLogger.warn("이미 실행 중인 미터기가 있어 종료합니다")
+        exitProcess(0)
+    }
+
+    run {
+        val appData = System.getenv("APPDATA") ?: System.getProperty("user.home")
+        val errFile = java.io.File(java.io.File(appData, "Aion2DpsMeter"), "update-last-error.txt")
+        if (errFile.isFile) {
+            val msg = errFile.readText().trim()
+            if (msg.isNotEmpty()) {
+                mainLogger.warn("이전 무인 업데이트가 실패했습니다: {}", msg)
+            }
+            errFile.delete()
+        }
     }
 
     DataManager.load()
