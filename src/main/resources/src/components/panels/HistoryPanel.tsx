@@ -1,14 +1,16 @@
 import { useHistory } from "@/hooks/useHistory";
 import bossIcon from "@/assets/bossIcon.png";
 import { useSettingsStore } from "@/stores/useSettingsStore";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { House, Loader2, TriangleAlert, Upload } from "lucide-react";
+import { normalizeGuildUrl } from "@/lib/guildApi";
 
 interface Props {
   formatBattleTime: (ms: number) => string;
   onSelectHistory: (idx: number, report: any) => void;
 }
 
-// type UploadStatus = "idle" | "loading" | "success" | "error";
+type UploadStatus = "idle" | "loading" | "success" | "error";
 
 const formatDateTime = (ms: number) => {
   if (!ms) return "";
@@ -20,30 +22,42 @@ const formatDateTime = (ms: number) => {
 export const HistoryPanel = ({ formatBattleTime, onSelectHistory }: Props) => {
   const { historyList, loading, fetchHistory } = useHistory();
   const theme = useSettingsStore((s) => s.theme);
-  // const [uploadStatus, setUploadStatus] = useState<Record<number, UploadStatus>>({});
-  // const [uploadSlugs, setUploadSlugs] = useState<Record<number, string>>({});
+  const guildWebUrl = useSettingsStore((s) => s.guildWebUrl);
+  const guildDeviceToken = useSettingsStore((s) => s.guildDeviceToken);
+  const canUpload = !!normalizeGuildUrl(guildWebUrl) && guildDeviceToken.length === 64;
+  const [uploadStatus, setUploadStatus] = useState<Record<number, UploadStatus>>({});
+  const [uploadIds, setUploadIds] = useState<Record<number, string>>({});
+
   useEffect(() => {
     fetchHistory();
   }, []);
-  // const isAnyUploading = Object.values(uploadStatus).some((s) => s === "loading");
 
-  // const handleUpload = async (e: React.MouseEvent, idx: number) => {
-  //   e.stopPropagation();
-  //   if (isAnyUploading) return;
+  const isAnyUploading = Object.values(uploadStatus).some((s) => s === "loading");
 
-  //   setUploadStatus((prev) => ({ ...prev, [idx]: "loading" }));
-  //   try {
-  //     const slug: string | null = await window.javaBridge?.upload?.(idx);
-  //     if (slug) {
-  //       setUploadSlugs((prev) => ({ ...prev, [idx]: slug }));
-  //       setUploadStatus((prev) => ({ ...prev, [idx]: "success" }));
-  //     } else {
-  //       setUploadStatus((prev) => ({ ...prev, [idx]: "error" }));
-  //     }
-  //   } catch {
-  //     setUploadStatus((prev) => ({ ...prev, [idx]: "error" }));
-  //   }
-  // };
+  const handleUpload = async (e: React.MouseEvent, idx: number) => {
+    e.stopPropagation();
+    if (isAnyUploading || !canUpload) return;
+    setUploadStatus((prev) => ({ ...prev, [idx]: "loading" }));
+    try {
+      const id = await window.javaBridge?.upload?.(idx);
+      if (id) {
+        setUploadIds((prev) => ({ ...prev, [idx]: String(id) }));
+        setUploadStatus((prev) => ({ ...prev, [idx]: "success" }));
+      } else {
+        setUploadStatus((prev) => ({ ...prev, [idx]: "error" }));
+      }
+    } catch {
+      setUploadStatus((prev) => ({ ...prev, [idx]: "error" }));
+    }
+  };
+
+  const openUploaded = (e: React.MouseEvent, idx: number) => {
+    e.stopPropagation();
+    const id = uploadIds[idx];
+    const base = normalizeGuildUrl(guildWebUrl);
+    if (!id || !base) return;
+    window.javaBridge?.openBrowser?.(`${base}/meter-encounters/${id}`);
+  };
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden ">
@@ -55,6 +69,7 @@ export const HistoryPanel = ({ formatBattleTime, onSelectHistory }: Props) => {
           </div>
         )}
         {historyList.map((item) => {
+          const status = uploadStatus[item.idx] || "idle";
           return (
             <div
               key={item.idx}
@@ -106,43 +121,44 @@ export const HistoryPanel = ({ formatBattleTime, onSelectHistory }: Props) => {
                   </div>
                 </div>
               </div>
-              {/* <div
-                style={{ minHeight: 52 }}
-                className=" rounded-lg w-16 flex items-center justify-center bg-black/30 cursor-pointer hover:brightness-125 transition-all duration-200">
-                <div className="">
-                  {status === "idle" && (
-                    <div
-                      className="flex flex-col justify-center items-center gap-1 opacity-60 hover:opacity-100 transition-opacity"
-                      onClick={(e) => handleUpload(e, item.idx)}>
-                      <Upload className="w-3.5 h-3.5" />
-                      <p className=" text-xs font-normal ">업로드</p>
-                    </div>
-                  )}
-                  {status === "loading" && (
-                    <div className="flex flex-col justify-center items-center gap-1 opacity-50 ">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin " />
-                      <p className=" text-xs font-normal ">대기중</p>
-                    </div>
-                  )}
-                  {status === "success" && (
-                    <div
-                      className="flex flex-col justify-center items-center gap-1 opacity-80 hover:opacity-100 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(`http://example.com/${slug}`, "_blank");
-                      }}>
-                      <House className="text-success w-3.5 h-3.5" />
-                      <p className="text-success text-xs font-normal ">완료</p>
-                    </div>
-                  )}
-                  {status === "error" && (
-                    <div className="flex flex-col justify-center items-center gap-1 opacity-80 hover:opacity-100 transition-opacity">
-                      <TriangleAlert className="text-warning w-3.5 h-3.5" />
-                      <p className="text-warning text-xs font-normal ">실패</p>
-                    </div>
-                  )}
+              {canUpload && (
+                <div
+                  style={{ minHeight: 52 }}
+                  className=" rounded-lg w-16 flex items-center justify-center bg-black/30 cursor-pointer hover:brightness-125 transition-all duration-200">
+                  <div className="">
+                    {status === "idle" && (
+                      <div
+                        className="flex flex-col justify-center items-center gap-1 opacity-60 hover:opacity-100 transition-opacity"
+                        onClick={(e) => handleUpload(e, item.idx)}>
+                        <Upload className="w-3.5 h-3.5" />
+                        <p className=" text-xs font-normal ">업로드</p>
+                      </div>
+                    )}
+                    {status === "loading" && (
+                      <div className="flex flex-col justify-center items-center gap-1 opacity-50 ">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin " />
+                        <p className=" text-xs font-normal ">대기중</p>
+                      </div>
+                    )}
+                    {status === "success" && (
+                      <div
+                        className="flex flex-col justify-center items-center gap-1 opacity-80 hover:opacity-100 transition-opacity"
+                        onClick={(e) => openUploaded(e, item.idx)}>
+                        <House className="text-success w-3.5 h-3.5" />
+                        <p className="text-success text-xs font-normal ">완료</p>
+                      </div>
+                    )}
+                    {status === "error" && (
+                      <div
+                        className="flex flex-col justify-center items-center gap-1 opacity-80 hover:opacity-100 transition-opacity"
+                        onClick={(e) => handleUpload(e, item.idx)}>
+                        <TriangleAlert className="text-warning w-3.5 h-3.5" />
+                        <p className="text-warning text-xs font-normal ">실패</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div> */}
+              )}
             </div>
           );
         })}
