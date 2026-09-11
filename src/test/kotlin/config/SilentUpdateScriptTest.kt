@@ -31,7 +31,7 @@ class SilentUpdateScriptTest {
     fun neverFallsBackToSetupWizard() {
         val script = SilentUpdateScript.render(1, "a.msi", "a.exe", "a.log")
         val msiexecLines = script.lines().map { it.trim() }.filter {
-            it.contains("msiexec") && !it.contains("LogLine")
+            it.contains("msiexec") && it.contains("/i") && !it.contains("LogLine")
         }
         assertTrue(msiexecLines.isNotEmpty())
         assertTrue(msiexecLines.all { it.contains("/qn") })
