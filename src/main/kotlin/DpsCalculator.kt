@@ -13,7 +13,6 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
     private val logger = LoggerFactory.getLogger(DpsCalculator::class.java)
 
     private var currentTarget: Int = 0
-    private var recentTargetWasDummy: Boolean = false
 
     private var recentData = DpsReport()
     private var recentDataSaved = false
@@ -69,14 +68,13 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
             resetCache()
         }
         currentTarget = storageTarget
-        recentTargetWasDummy = prevTargetDummy
         if (currentTarget == -1) {
             val battleEnd = DataManager.currentBattleEnd()
             DataManager.flushPacket()
             if (isNewBattleEnd) {
                 recentData.battleEnd = battleEnd
             }
-            if (isNewBattleEnd && !recentData.isEmpty() && !recentTargetWasDummy) {
+            if (isNewBattleEnd && !recentData.isEmpty()) {
                 DataManager.saveBattleLog(recentData, buildEncounterSnapshot(recentData))
                 recentDataSaved = true
             }
@@ -166,13 +164,6 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
             report.contributors.first().isExecutor = true
         }
 
-        if (DataManager.isCurrentTargetDummy()) {
-            val executorId = DataManager.executorId()
-            if (executorId != 0 && report.contributors.none { it.isExecutor || it.id == executorId }) {
-                return recentData
-            }
-        }
-
         recentData = report
         recentDataSaved = false
         return report
@@ -243,7 +234,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
     }
 
     fun resetDataStorage() {
-        if (!recentData.isEmpty() && !recentDataSaved && !DataManager.isCurrentTargetDummy()) {
+        if (!recentData.isEmpty() && !recentDataSaved) {
             DataManager.saveBattleLog(recentData, buildEncounterSnapshot(recentData))
             recentDataSaved = true
         }

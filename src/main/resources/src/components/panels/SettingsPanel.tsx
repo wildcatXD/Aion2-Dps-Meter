@@ -798,7 +798,7 @@ export const SettingsPanel = ({
             <SettingsItem>
               <SettingsRow
                 title="추적 오버레이"
-                description="미터기와 다른 창으로 뜹니다. 따로 드래그할 수 있고, 게임 위에 고정합니다.">
+                description="고른 스킬만 별도 창으로 둡니다. 오드·열쇠·본인 버프는 미터기 창에 고정됩니다. 캐릭터 아래 표시는 낫터기입니다.">
                 <Switch
                   checked={trackerOverlayEnabled}
                   onCheckedChange={setTrackerOverlayEnabled}
@@ -807,7 +807,7 @@ export const SettingsPanel = ({
               </SettingsRow>
               <SettingsRow
                 title="빈 오드·열쇠 칸"
-                description="미터 헤더와 추적 창에 오드·열쇠를 둡니다. 캐릭터가 월드에 들어오면 숫자가 채워지고, 끄면 값이 없을 때 칸을 숨깁니다.">
+                description="미터기 창에 오드·열쇠를 항상 둡니다. 끄면 값이 없을 때 칸을 숨깁니다.">
                 <Switch
                   checked={showEmptyResourceChips}
                   onCheckedChange={setShowEmptyResourceChips}

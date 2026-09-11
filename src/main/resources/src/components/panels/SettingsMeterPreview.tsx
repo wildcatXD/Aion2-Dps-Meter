@@ -5,6 +5,7 @@ import { TargetInfo } from "@/components/TargetInfo";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import type { Player } from "@/types";
 import { useShallow } from "zustand/react/shallow";
+import { MeterStatusBar } from "@/components/MeterStatusBar";
 
 /** 설정값을 바꾸는 즉시 미터에 어떻게 보이는지 보여 줍니다. */
 const PREVIEW_PLAYERS: Player[] = [
@@ -111,6 +112,7 @@ export function SettingsMeterPreview() {
                 />
               </div>
             )}
+            <MeterStatusBar />
             <div style={{ opacity: meterListOpacity }}>
               {showTarget && (
                 <TargetInfo

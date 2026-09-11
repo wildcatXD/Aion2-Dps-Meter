@@ -433,10 +433,10 @@ object DataManager {
         val executor = userRepository.executor()
         if (executor != uid) {
             if (executor != 0) {
-                userRepository.get(executor)!!.isExecutor = false
+                userRepository.get(executor)?.isExecutor = false
             }
             userRepository.executor(uid)
-            userRepository.get(uid)!!.isExecutor = true
+            userRepository.get(uid)?.isExecutor = true
             resetOdeEnergy()
         }
     }
@@ -498,8 +498,11 @@ object DataManager {
         val latest = if (uid == 0) emptyMap() else useBuffRepository.latestBySkillCode(uid)
         val grouped = LinkedHashMap<Int, TrackedBuff>()
         for (buff in latest.values) {
+            if (isBuffBlacklisted(buff.skillCode)) continue
             val base = SkillCodes.base(buff.skillCode)
+            if (isBuffBlacklisted(base)) continue
             val remaining = (buff.buffEnd - now).coerceAtLeast(0L)
+            if (remaining <= 0L) continue
             val existing = grouped[base]
             if (existing == null || remaining >= existing.remainingMs) {
                 grouped[base] = TrackedBuff(

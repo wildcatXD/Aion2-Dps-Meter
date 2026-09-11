@@ -13,7 +13,6 @@ import {
 import { useJoinRequestStore } from "@/stores/useJoinRequestStore";
 import { useGuildStore } from "@/stores/useGuildStore";
 import { useSettingsStore } from "@/stores/useSettingsStore";
-import { ResourceChips } from "@/components/ResourceChips";
 
 interface Props {
   setSettings: (value: PanelType) => void;
@@ -53,7 +52,6 @@ export const Header = memo(
                 nDPS 실험
               </span>
             )}
-            <ResourceChips compact />
           </div>
         </div>
 
