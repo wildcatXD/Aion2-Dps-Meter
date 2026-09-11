@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { SkillIcon } from "@/components/SkillIcon";
+import { ResourceChips } from "@/components/ResourceChips";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { getSkillName } from "@/constants/codes";
 import { formatRemainShort } from "@/utils/formatRemain";
@@ -12,20 +13,16 @@ type TrackedBuff = {
 };
 
 type TrackerStatus = {
-  odeEnergy: number | null;
-  shugoKeys: number | null;
   buffs: TrackedBuff[];
 };
 
-const emptyStatus: TrackerStatus = { odeEnergy: null, shugoKeys: null, buffs: [] };
+const emptyStatus: TrackerStatus = { buffs: [] };
 
 function parseStatus(raw: unknown): TrackerStatus {
   if (typeof raw !== "string" || !raw) return emptyStatus;
   try {
     const parsed = JSON.parse(raw) as Partial<TrackerStatus>;
     return {
-      odeEnergy: typeof parsed.odeEnergy === "number" ? parsed.odeEnergy : null,
-      shugoKeys: typeof parsed.shugoKeys === "number" ? parsed.shugoKeys : null,
       buffs: Array.isArray(parsed.buffs) ? parsed.buffs : [],
     };
   } catch {
@@ -33,20 +30,8 @@ function parseStatus(raw: unknown): TrackerStatus {
   }
 }
 
-function ResourceChip({ label, value }: { label: string; value: number | null }) {
-  return (
-    <div className="flex min-w-[52px] flex-col items-center rounded-md border border-amber-500/20 bg-black/40 px-1.5 py-1">
-      <span className="text-[8px] font-bold tracking-wide text-amber-300/80">{label}</span>
-      <span className="text-[12px] font-bold tabular-nums text-slate-100">
-        {value == null ? "—" : value}
-      </span>
-    </div>
-  );
-}
-
 export function TrackerHud() {
   const codes = useSettingsStore((s) => s.trackedBuffCodes);
-  const showEmptyResourceChips = useSettingsStore((s) => s.showEmptyResourceChips);
   const [status, setStatus] = useState<TrackerStatus>(emptyStatus);
 
   useEffect(() => {
@@ -60,17 +45,10 @@ export function TrackerHud() {
   }, []);
 
   const byCode = new Map(status.buffs.map((buff) => [buff.skillCode, buff]));
-  const hasResourceValue = status.odeEnergy != null || status.shugoKeys != null;
-  const showResourceChips = showEmptyResourceChips || hasResourceValue;
 
   return (
     <div className="flex flex-wrap items-end gap-1.5 rounded-lg border border-amber-500/20 bg-[#0b0d17]/80 px-2 py-1.5">
-      {showResourceChips && (
-        <>
-          <ResourceChip label="오드" value={status.odeEnergy} />
-          <ResourceChip label="열쇠" value={status.shugoKeys} />
-        </>
-      )}
+      <ResourceChips />
       {codes.map((code) => {
         const live = byCode.get(code);
         const remaining = live?.remainingMs ?? 0;

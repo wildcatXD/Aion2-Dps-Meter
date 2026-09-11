@@ -2,6 +2,7 @@ package com.tbread.data
 
 import com.tbread.data.repository.*
 import com.tbread.entity.*
+import com.tbread.packet.OdeEnergyParser
 import com.tbread.util.SkillCodes
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
@@ -409,6 +410,7 @@ object DataManager {
             }
             userRepository.executor(uid)
             userRepository.get(uid)!!.isExecutor = true
+            resetOdeEnergy()
         }
     }
 
@@ -430,6 +432,38 @@ object DataManager {
     @Volatile
     var shugoKeys: Int? = null
         private set
+
+    @Volatile
+    private var odeKnownIdValue: Int? = null
+
+    @Volatile
+    private var odeBase: Int = 0
+
+    fun odeKnownId(): Int? = odeKnownIdValue
+
+    fun applyOdeEnergy(reading: OdeEnergyParser.Reading) {
+        val known = odeKnownIdValue
+        if (known != null && reading.entityId != known && !reading.isSnapshot) return
+        odeKnownIdValue = reading.entityId
+        if (reading.base != null && reading.dynamic != null) {
+            odeBase = reading.base
+            odeEnergy = reading.total
+            return
+        }
+        if (reading.isSnapshot) {
+            odeBase = reading.base ?: 0
+            odeEnergy = reading.total
+            return
+        }
+        odeEnergy = odeBase + reading.total
+    }
+
+    internal fun resetOdeEnergy() {
+        odeEnergy = null
+        shugoKeys = null
+        odeKnownIdValue = null
+        odeBase = 0
+    }
 
     fun trackerStatus(): TrackerStatus {
         val uid = executorId()

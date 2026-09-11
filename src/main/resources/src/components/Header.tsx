@@ -12,12 +12,13 @@ import {
 } from "lucide-react";
 import { useJoinRequestStore } from "@/stores/useJoinRequestStore";
 import { useGuildStore } from "@/stores/useGuildStore";
+import { useSettingsStore } from "@/stores/useSettingsStore";
+import { ResourceChips } from "@/components/ResourceChips";
 
 interface Props {
   setSettings: (value: PanelType) => void;
   className: string;
 }
-import { useSettingsStore } from "@/stores/useSettingsStore";
 
 export const Header = memo(
   ({
@@ -44,7 +45,7 @@ export const Header = memo(
           <div className="window-drag-handle cursor-grab active:cursor-grabbing opacity-70 hover:opacity-100 transition-opacity p-1">
             <Grip className="size-4 text-amber-200/80" />
           </div>
-          <div className="flex items-baseline gap-1.5 pr-1 select-none">
+          <div className="flex items-center gap-1.5 pr-1 select-none">
             <span className="text-sm font-extrabold tracking-wide text-amber-400">빛</span>
             <span className="text-[11px] font-semibold text-slate-300/85">DPS</span>
             {dpsMetric === "ndps" && (
@@ -52,6 +53,7 @@ export const Header = memo(
                 nDPS 실험
               </span>
             )}
+            <ResourceChips compact />
           </div>
         </div>
 

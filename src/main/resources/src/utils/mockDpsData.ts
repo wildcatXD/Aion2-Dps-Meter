@@ -812,8 +812,8 @@ export const injectMockDpsData = () => {
     getLiveBuffOperatingRate: (_id: number) => JSON.stringify(MOCK_BUFF_DATA),
     getTrackerStatus: () =>
       JSON.stringify({
-        odeEnergy: null,
-        shugoKeys: null,
+        odeEnergy: 265,
+        shugoKeys: 3,
         buffs: [{ skillCode: 18250000, name: "질풍의 권능", remainingMs: 8000, durationMs: 10000 }],
       }),
     openBrowser: (url: string) => console.log("[mock] openBrowser:", url),
