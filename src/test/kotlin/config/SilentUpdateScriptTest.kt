@@ -52,7 +52,6 @@ class SilentUpdateScriptTest {
         assertTrue(script.contains("silent install failed"))
         assertTrue(script.contains("silent install succeeded"))
         assertTrue(script.contains("""%ProgramFiles%\bit-dps-meter\bit-dps-meter.exe"""))
-        assertTrue(script.contains("launcher not found after install"))
         assertTrue(script.contains("sh.Run Chr(34) & launch & Chr(34), 1, False"))
         assertTrue(script.contains("tries >= 3"))
         assertTrue(script.contains("KillMeter"))
@@ -69,16 +68,45 @@ class SilentUpdateScriptTest {
         val script = SilentUpdateScript.render(1, "a.msi", "old.exe", "a.log")
         val successIdx = script.indexOf("silent install succeeded")
         val failIdx = script.indexOf("silent install failed")
-        val findIdx = script.indexOf("launch = FindInstalledExe()")
+        val pickIdx = script.indexOf("launch = PickCompleteLaunch()")
         assertTrue(successIdx >= 0)
         assertTrue(failIdx > successIdx)
-        assertTrue(findIdx > successIdx)
-        assertTrue(findIdx < failIdx)
-        val successBlock = script.substring(successIdx, failIdx)
-        assertTrue(successBlock.contains("launch = FindInstalledExe()"))
-        val failBlock = script.substring(failIdx, script.indexOf("End If", failIdx))
-        assertTrue(failBlock.contains("launch = exe"))
-        assertFalse(failBlock.contains("FindInstalledExe"))
+        assertTrue(pickIdx > failIdx)
+        val failBlock = script.substring(failIdx, pickIdx)
+        assertFalse(failBlock.contains("launch = exe"))
+        assertTrue(script.contains("PickCompleteLaunch = FindInstalledExe()"))
+        assertTrue(script.contains("InstallLooksComplete(exe)"))
+    }
+
+    @Test
+    fun neverLaunchesIncompleteInstall() {
+        val script = SilentUpdateScript.render(
+            waitPid = 1,
+            msiPath = """C:\Temp\u.msi""",
+            exePath = """C:\Program Files\bit-dps-meter\bit-dps-meter.exe""",
+            logPath = """C:\Temp\u.log""",
+        )
+        assertEquals("bit-dps-meter.cfg", SilentUpdateScript.LAUNCHER_CFG)
+        assertTrue(script.contains("Function InstallLooksComplete"))
+        assertTrue(script.contains("""\app\bit-dps-meter.cfg"""))
+        assertTrue(script.contains("If InstallLooksComplete(c(i)) Then"))
+        assertTrue(script.contains("If InstallLooksComplete(launch) Then"))
+        assertFalse(script.contains("If FileExists(launch) Then"))
+        assertTrue(script.contains("not launching incomplete install"))
+        assertTrue(script.contains("incomplete install; missing app\\bit-dps-meter.cfg"))
+        assertFalse(script.contains("launcher not found after install"))
+    }
+
+    @Test
+    fun backsUpInstallAndRestoresWithXcopy() {
+        val script = SilentUpdateScript.render(1, "a.msi", "a.exe", "a.log")
+        assertTrue(script.contains("BackupCurrentInstall"))
+        assertTrue(script.contains("RestoreBackup"))
+        assertTrue(script.contains("%TEMP%\\bit-dps-meter-prev"))
+        assertTrue(script.contains("xcopy.exe"))
+        assertTrue(script.contains("/E /I /Y /H /R"))
+        assertTrue(script.contains("install incomplete, retry elevated"))
+        assertFalse(script.contains("cmd.exe"))
     }
 
     @Test
