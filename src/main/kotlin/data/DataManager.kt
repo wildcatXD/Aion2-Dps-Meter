@@ -53,12 +53,31 @@ object DataManager {
         loadBuffBlacklistJson()
     }
 
+    @Volatile
+    private var dummyNameMatcherList: List<Pair<ByteArray, Int>> = emptyList()
+
     private fun loadMobJson() {
         val mobJson = object {}.javaClass.getResourceAsStream("/json/mobs.json")
             ?.bufferedReader()
             ?.readText()!!
         Json.decodeFromString<List<Mob>>(mobJson).forEach { saveMob(it) }
+        rebuildDummyNameMatchers()
     }
+
+    private fun rebuildDummyNameMatchers() {
+        val names = LinkedHashMap<String, Int>()
+        names["근접 훈련용 허수아비"] = 2300229
+        names["훈련용 허수아비"] = 2300229
+        names["훈련용 허수아비 (표본)"] = 2090773
+        for (mob in mobRepository.dummies()) {
+            names.putIfAbsent(mob.name, mob.code)
+        }
+        dummyNameMatcherList = names.entries
+            .sortedByDescending { it.key.toByteArray(Charsets.UTF_8).size }
+            .map { it.key.toByteArray(Charsets.UTF_8) to it.value }
+    }
+
+    fun dummyNameMatchers(): List<Pair<ByteArray, Int>> = dummyNameMatcherList
 
     private fun loadSkillJson() {
         val skillJson = object {}.javaClass.getResourceAsStream("/json/skills.json")
@@ -346,6 +365,14 @@ object DataManager {
 
     fun saveMobId(mid: Int, code: Int) {
         mobIdRepository.save(mid, code)
+    }
+
+    fun unmappedCombatEntityIds(): List<Int> {
+        val current = currentTarget()
+        if (current > 0 && mobId(current) == null && user(current) == null) {
+            return listOf(current)
+        }
+        return emptyList()
     }
 
     fun saveMobMaxHp(mid: Int, maxHp: Int) {

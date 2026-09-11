@@ -114,16 +114,20 @@ class StreamProcessor() {
             // 본인 닉네임 옵코드가 패치로 바뀌었거나, 캐릭터 선택 전에 미터기를 못 켠
             // 경우에는 0x36 계열 패킷을 같은 레이아웃으로 한 번 더 시도합니다.
             if ((packet[opcodeOffset + 1].toInt() and 0xFF) == 0x36) {
-                parseOwnNicknameBody(
+                val nickOk = parseOwnNicknameBody(
                     packet,
                     opcodeOffset + 2,
                     arrivedAt,
                     isExecutor = DataManager.executorId() == 0,
                     logFailures = false,
                 )
+                if (!nickOk) {
+                    tryParseUnknownNpcAppearance(packet, opcodeOffset)
+                }
             }
         }
         harvestNicknamesForKnownActors(packet)
+        harvestMobCatalogForUnmappedTargets(packet)
     }
 
     private fun decompressPacket(
@@ -307,6 +311,76 @@ class StreamProcessor() {
             if (candidate in 1001..1021 || candidate in 2001..2021) server = candidate
         }
         return nickname to server
+    }
+
+    /**
+     * 고정 NPC 스폰(`0x40 0x36`)을 놓친 뒤에도, 전투 중인 미매핑 인스턴스 id가
+     * 나중에 카탈로그 코드나 허수아비 이름과 같이 오면 그때 붙입니다.
+     */
+    private fun harvestMobCatalogForUnmappedTargets(packet: ByteArray) {
+        val missing = DataManager.unmappedCombatEntityIds()
+        if (missing.isEmpty()) return
+        for (entityId in missing) {
+            if (entityId <= 0) continue
+            val encoded = encodeVarInt(entityId)
+            if (encoded.size < 2) continue
+            val idx = findArrayIndex(packet, encoded)
+            if (idx == -1) continue
+            if (trySaveNpcCatalogCode(packet, idx + encoded.size, entityId, requireCatalog = true)) {
+                logger.info(
+                    "몹 카탈로그 보조탐지 id={} code={} name={}",
+                    entityId,
+                    DataManager.mobId(entityId),
+                    DataManager.mobId(entityId)?.let { DataManager.mob(it)?.name },
+                )
+                continue
+            }
+            if (trySaveDummyNameFromPacket(packet, entityId)) {
+                logger.info(
+                    "허수아비 이름 보조탐지 id={} code={} name={}",
+                    entityId,
+                    DataManager.mobId(entityId),
+                    DataManager.mobId(entityId)?.let { DataManager.mob(it)?.name },
+                )
+            }
+        }
+    }
+
+    /**
+     * 0x40/0x41 이 아닌 0x36 계열 외형 갱신. 전투력 패킷(0x56 0x36)은 제외합니다.
+     */
+    private fun tryParseUnknownNpcAppearance(packet: ByteArray, opcodeOffset: Int) {
+        if (opcodeOffset + 2 >= packet.size) return
+        val b1 = packet[opcodeOffset].toInt() and 0xFF
+        if (b1 == 0x56) return
+        if (packet[opcodeOffset + 1] != 0x36.toByte()) return
+        var offset = opcodeOffset + 2
+        val entity = readVarInt(packet, offset, silent = true)
+        if (entity.length < 0 || entity.value <= 0) return
+        if (DataManager.user(entity.value) != null) return
+        if (DataManager.mobId(entity.value) != null) return
+        offset += entity.length
+        if (trySaveNpcCatalogCode(packet, offset, entity.value, requireCatalog = true)) {
+            logger.info(
+                "NPC 외형 보조탐지 opcode=0x{} 0x36 id={} code={}",
+                "%02X".format(b1),
+                entity.value,
+                DataManager.mobId(entity.value),
+            )
+            return
+        }
+        trySaveDummyNameFromPacket(packet, entity.value)
+    }
+
+    private fun trySaveDummyNameFromPacket(packet: ByteArray, entityId: Int): Boolean {
+        if (DataManager.mobId(entityId) != null) return false
+        for ((utf8, code) in DataManager.dummyNameMatchers()) {
+            if (utf8.isEmpty()) continue
+            if (findArrayIndex(packet, utf8) == -1) continue
+            DataManager.saveMobId(entityId, code)
+            return true
+        }
+        return false
     }
 
     private fun searchOtherNickname(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean, arrivedAt: Long) {
@@ -593,8 +667,13 @@ class StreamProcessor() {
 
     private fun isNpcCatalogCode(code: Int): Boolean = code in 2_000_000..2_999_999
 
-    private fun trySaveNpcCatalogCode(packet: ByteArray, afterEntityId: Int, entityId: Int) {
-        if (afterEntityId + 7 > packet.size) return
+    private fun trySaveNpcCatalogCode(
+        packet: ByteArray,
+        afterEntityId: Int,
+        entityId: Int,
+        requireCatalog: Boolean = false,
+    ): Boolean {
+        if (afterEntityId + 7 > packet.size) return false
         val tag0 = packet[afterEntityId].toInt() and 0xFF
         val tag1 = packet[afterEntityId + 1].toInt() and 0xFF
         val tag2 = packet[afterEntityId + 2].toInt() and 0xFF
@@ -603,9 +682,9 @@ class StreamProcessor() {
                 (tag0 == 0x1C && tag1 == 0x00 && tag2 == 0x00)
         if (likelyCarriesCode) {
             val tagged = parseUInt32le(packet, afterEntityId + 3)
-            if (isNpcCatalogCode(tagged)) {
+            if (isNpcCatalogCode(tagged) && (!requireCatalog || DataManager.mob(tagged) != null)) {
                 DataManager.saveMobId(entityId, tagged)
-                return
+                return true
             }
         }
         val scanEnd = minOf(afterEntityId + 16, packet.size - 4)
@@ -614,10 +693,11 @@ class StreamProcessor() {
             val code = parseUInt32le(packet, i)
             if (isNpcCatalogCode(code) && DataManager.mob(code) != null) {
                 DataManager.saveMobId(entityId, code)
-                return
+                return true
             }
             i++
         }
+        return false
     }
 
     private fun parseOdeEnergy(
