@@ -31,8 +31,8 @@ const AXES: Record<
     { key: "detailWidth", dir: "x", min: 480, max: 1600 },
   ],
   settings: [
-    { key: "settingsPanelHeight", dir: "y", min: 300, max: 920 },
-    { key: "settingsPanelWidth", dir: "x", min: 280, max: 720 },
+    { key: "settingsPanelHeight", dir: "y", min: 420, max: 980 },
+    { key: "settingsPanelWidth", dir: "x", min: 720, max: 1280 },
   ],
   history: [
     { key: "historyPanelHeight", dir: "y", min: 130, max: 860 },

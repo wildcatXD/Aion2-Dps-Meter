@@ -46,6 +46,7 @@ function ResourceChip({ label, value }: { label: string; value: number | null })
 
 export function TrackerHud() {
   const codes = useSettingsStore((s) => s.trackedBuffCodes);
+  const showEmptyResourceChips = useSettingsStore((s) => s.showEmptyResourceChips);
   const [status, setStatus] = useState<TrackerStatus>(emptyStatus);
 
   useEffect(() => {
@@ -59,11 +60,17 @@ export function TrackerHud() {
   }, []);
 
   const byCode = new Map(status.buffs.map((buff) => [buff.skillCode, buff]));
+  const hasResourceValue = status.odeEnergy != null || status.shugoKeys != null;
+  const showResourceChips = showEmptyResourceChips || hasResourceValue;
 
   return (
     <div className="flex flex-wrap items-end gap-1.5 rounded-lg border border-amber-500/20 bg-[#0b0d17]/80 px-2 py-1.5">
-      <ResourceChip label="오드" value={status.odeEnergy} />
-      <ResourceChip label="열쇠" value={status.shugoKeys} />
+      {showResourceChips && (
+        <>
+          <ResourceChip label="오드" value={status.odeEnergy} />
+          <ResourceChip label="열쇠" value={status.shugoKeys} />
+        </>
+      )}
       {codes.map((code) => {
         const live = byCode.get(code);
         const remaining = live?.remainingMs ?? 0;

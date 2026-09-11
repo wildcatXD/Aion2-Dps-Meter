@@ -4,7 +4,15 @@ import { useShallow } from "zustand/react/shallow";
 import { useHotkeyCapture } from "@/hooks/useHotkeyCapture";
 import { formatHotkey } from "@/utils/hotKey";
 import { Button } from "@/components/ui/button";
-import { RotateCcw } from "lucide-react";
+import {
+  Bell,
+  Crosshair,
+  Gauge,
+  Keyboard,
+  Palette,
+  RotateCcw,
+  SlidersHorizontal,
+} from "lucide-react";
 import type {
   DisplayMode,
   DpsMetric,
@@ -23,6 +31,7 @@ import { SettingsControlInput } from "./SettingsControlInput";
 import { ColorSwatch, GradientRow } from "@/components/colorpicker";
 import { GuildPairSettings } from "./GuildPairSettings";
 import { TrackerSkillPicker } from "./TrackerSkillPicker";
+import { SettingsMeterPreview } from "./SettingsMeterPreview";
 import type { UpdateInfo } from "@/types";
 import {
   Select,
@@ -31,6 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 interface Props {
   onClose: () => void;
@@ -40,6 +50,17 @@ interface Props {
   onCheckUpdate?: () => void;
   registerHeaderClose?: (handler: (() => void) | null) => void;
 }
+
+type SettingsTab = "general" | "meter" | "theme" | "controls" | "tracker" | "guild";
+
+const TABS: { id: SettingsTab; label: string; icon: typeof Gauge }[] = [
+  { id: "general", label: "일반", icon: SlidersHorizontal },
+  { id: "meter", label: "미터", icon: Gauge },
+  { id: "theme", label: "테마", icon: Palette },
+  { id: "controls", label: "조작", icon: Keyboard },
+  { id: "tracker", label: "추적", icon: Crosshair },
+  { id: "guild", label: "길드", icon: Bell },
+];
 
 const DPS_METRICS: { value: DpsMetric; label: string; description: string }[] = [
   { value: "rdps", label: "실딜 rDPS", description: "실제 피해 / 전투시간. nDPS가 아닙니다." },
@@ -117,6 +138,7 @@ export const SettingsPanel = ({
   onCheckUpdate,
   registerHeaderClose,
 }: Props) => {
+  const [tab, setTab] = useState<SettingsTab>("general");
   const {
     hideHotkey,
     displayMode,
@@ -138,6 +160,7 @@ export const SettingsPanel = ({
     isAutoHide,
     guildAlertsEnabled,
     trackerOverlayEnabled,
+    showEmptyResourceChips,
   } = useSettingsStore(
     useShallow((s) => ({
       hideHotkey: s.hideHotkey,
@@ -160,6 +183,7 @@ export const SettingsPanel = ({
       isAutoHide: s.isAutoHide,
       guildAlertsEnabled: s.guildAlertsEnabled,
       trackerOverlayEnabled: s.trackerOverlayEnabled,
+      showEmptyResourceChips: s.showEmptyResourceChips,
     })),
   );
 
@@ -188,6 +212,7 @@ export const SettingsPanel = ({
     resetMeterPosition,
     setGuildAlertsEnabled,
     setTrackerOverlayEnabled,
+    setShowEmptyResourceChips,
   } = useSettingsStore.getState();
   const {
     pending: pendingHide,
@@ -218,6 +243,9 @@ export const SettingsPanel = ({
     meterListOpacity,
     contributionMode,
     clickThroughHotkey,
+    guildAlertsEnabled,
+    trackerOverlayEnabled,
+    showEmptyResourceChips,
     theme: structuredClone(theme),
   }));
 
@@ -248,6 +276,9 @@ export const SettingsPanel = ({
     setMeterListOpacity(snapshot.meterListOpacity);
     setContributionMode(snapshot.contributionMode);
     resetClickThrough(snapshot.clickThroughHotkey);
+    setGuildAlertsEnabled(snapshot.guildAlertsEnabled);
+    setTrackerOverlayEnabled(snapshot.trackerOverlayEnabled);
+    setShowEmptyResourceChips(snapshot.showEmptyResourceChips);
     onClose();
   }, [
     onClose,
@@ -257,6 +288,7 @@ export const SettingsPanel = ({
     setDisplayMode,
     setDpsMetric,
     setFontFamily,
+    setGuildAlertsEnabled,
     setHeaderPosition,
     setIsMinimal,
     setMeterListOpacity,
@@ -264,9 +296,11 @@ export const SettingsPanel = ({
     setNameDisplay,
     setRowHeight,
     setShowCombatTimerInMinimal,
+    setShowEmptyResourceChips,
     setShowTargetInfoInMinimal,
     setTheme,
     setTargetInfoDisplayMode,
+    setTrackerOverlayEnabled,
     snapshot,
   ]);
 
@@ -285,500 +319,514 @@ export const SettingsPanel = ({
   }, [registerHeaderClose, stableHandleCancel]);
 
   return (
-    <div
-      className="flex pr-3 min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden py-2"
-      style={{
-        contain: "layout style paint",
-      }}
-      >
-      <div className="flex pr-3 min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden scrollbar-gutter:stable py-2">
-        <SettingsItem>
-          <SettingsRow
-            title="버전 정보"
-            description={currentVersion ? `v${currentVersion}` : "-"}
-            rightClassName="flex items-center">
-            <Button
-              onClick={onCheckUpdate}
-              variant="ghost"
-              size="lg"
-              className={
-                updateInfo
-                  ? " py-3 transition-all text-green-400 border border-green-400/30 hover:bg-green-400/10"
-                  : " py-3 transition-all opacity-60 hover:opacity-100"
-              }>
-              {updateInfo ? `v${updateInfo.latestVersion} 업데이트` : "업데이트 확인"}
-            </Button>
-          </SettingsRow>
-        </SettingsItem>
-        <GuildPairSettings />
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <nav className="flex w-[120px] shrink-0 flex-col gap-0.5 border-r border-amber-500/15 bg-black/25 px-1.5 py-2">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              className={cn(
+                "flex items-center gap-2 rounded-md px-2 py-2 text-left text-xs transition-colors",
+                tab === id
+                  ? "bg-amber-500/20 text-amber-200"
+                  : "text-slate-300/80 hover:bg-white/5 hover:text-slate-100",
+              )}>
+              <Icon className="size-3.5 shrink-0 opacity-80" />
+              {label}
+            </button>
+          ))}
+        </nav>
 
-        <SettingsItem>
-          <SettingsRow
-            title="길드·보스 알람"
-            description="연동되면 아그로·우선 필드보스 임박을 미터 위에 띄웁니다.">
-            <Switch
-              checked={guildAlertsEnabled}
-              onCheckedChange={setGuildAlertsEnabled}
-              className="data-[state=checked]:bg-amber-500"
-            />
-          </SettingsRow>
-          <SettingsRow
-            title="추적 오버레이"
-            description="미터기와 다른 창으로 뜹니다. 따로 드래그할 수 있고, 게임 위에 고정합니다. 고른 스킬의 버프 남은 시간, 오드·열쇠 칸.">
-            <Switch
-              checked={trackerOverlayEnabled}
-              onCheckedChange={setTrackerOverlayEnabled}
-              className="data-[state=checked]:bg-amber-500"
-            />
-          </SettingsRow>
-          {trackerOverlayEnabled && <TrackerSkillPicker />}
-        </SettingsItem>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 py-2">
+          {tab === "general" && (
+            <>
+              <SettingsItem>
+                <SettingsRow
+                  title="버전 정보"
+                  description={currentVersion ? `v${currentVersion}` : "-"}
+                  rightClassName="flex items-center">
+                  <Button
+                    onClick={onCheckUpdate}
+                    variant="ghost"
+                    size="lg"
+                    className={
+                      updateInfo
+                        ? " py-3 transition-all text-green-400 border border-green-400/30 hover:bg-green-400/10"
+                        : " py-3 transition-all opacity-60 hover:opacity-100"
+                    }>
+                    {updateInfo ? `v${updateInfo.latestVersion} 업데이트` : "업데이트 확인"}
+                  </Button>
+                </SettingsRow>
+              </SettingsItem>
+              <SettingsItem>
+                <SettingsRow
+                  title="폰트"
+                  description="표시 글꼴을 선택합니다"
+                  align="center"
+                  rightClassName="w-44">
+                  <Select
+                    value={fontFamily}
+                    onValueChange={(v) => setFontFamily(v as FontFamily)}>
+                    <SelectTrigger className="w-44 bg-white/5 border-white/10 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FONT_FAMILIES.map(({ value, label }) => (
+                        <SelectItem
+                          key={value}
+                          value={value}
+                          className="px-4 py-2">
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </SettingsRow>
+              </SettingsItem>
+              <SettingsItem>
+                <SettingsRow
+                  title="자동 숨김"
+                  description="아이온2가 포커스가 아닐 때 미터기를 숨깁니다.">
+                  <Switch
+                    checked={isAutoHide}
+                    onCheckedChange={toggleAutoHide}
+                    className="data-[state=checked]:bg-amber-500"
+                  />
+                </SettingsRow>
+              </SettingsItem>
+            </>
+          )}
 
-        <SettingsItem>
-          <SettingsRow
-            title="폰트"
-            description="표시 글꼴을 선택합니다"
-            align="center"
-            rightClassName="w-44">
-            <Select
-              value={fontFamily}
-              onValueChange={(v) => setFontFamily(v as FontFamily)}>
-              <SelectTrigger className="w-44 bg-white/5 border-white/10 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {FONT_FAMILIES.map(({ value, label }) => (
-                  <SelectItem
-                    key={value}
-                    value={value}
-                    className="px-4 py-2">
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SettingsRow>
-        </SettingsItem>
+          {tab === "meter" && (
+            <>
+              <SettingsItem title="레이아웃">
+                <SettingsRow
+                  title="버튼 위치"
+                  description="미터 헤더 버튼을 위 또는 아래에 둡니다.">
+                  <Select
+                    value={headerPosition}
+                    onValueChange={(v) => setHeaderPosition(v as HeaderPosition)}>
+                    <SelectTrigger className="w-24 bg-white/5 border-white/10 ">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        value="top"
+                        className="px-4 py-2">
+                        상단
+                      </SelectItem>
+                      <SelectItem
+                        value="bottom"
+                        className="px-4 py-2">
+                        하단
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </SettingsRow>
+                <SettingsRow
+                  title="컴팩트 모드"
+                  description="헤더를 숨기고 전투 중 미터만 남깁니다.">
+                  <Switch
+                    checked={isMinimal}
+                    onCheckedChange={(v) => setIsMinimal(v)}
+                    className="data-[state=checked]:bg-amber-500"
+                  />
+                </SettingsRow>
+                <SettingsRow title="컴팩트 모드 중 전투 시간 표시">
+                  <Switch
+                    checked={showCombatTimerInMinimal}
+                    disabled={!isMinimal}
+                    onCheckedChange={(v) => setShowCombatTimerInMinimal(v)}
+                    className="data-[state=checked]:bg-amber-500 disabled:opacity-30"
+                  />
+                </SettingsRow>
+                <SettingsRow title="컴팩트 모드 중 보스 표시">
+                  <Switch
+                    checked={showTargetInfoInMinimal}
+                    disabled={!isMinimal}
+                    onCheckedChange={(v) => setShowTargetInfoInMinimal(v)}
+                    className="data-[state=checked]:bg-amber-500 disabled:opacity-30"
+                  />
+                </SettingsRow>
+              </SettingsItem>
+              <SettingsItem title="숫자 표시">
+              <SettingsRow
+                title="기여도 표시 방식"
+                align="center"
+                rightClassName="w-44">
+                <Select
+                  value={contributionMode}
+                  onValueChange={(v) => setContributionMode(v as ContributionMode)}>
+                  <SelectTrigger className="text-xs w-44 bg-white/5 border-white/10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem
+                      value="contribution"
+                      className="px-4 py-2">
+                      파티 기여도 (상대)
+                    </SelectItem>
+                    <SelectItem
+                      value="entireContribution"
+                      className="px-4 py-2">
+                      보스 체력 기여도 (절대)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </SettingsRow>
+              <SettingsRow
+                title="딜 지표"
+                description="rDPS = 실제 피해. nDPS = 파티 시너지 근사 제거(낫터기와 다를 수 있음)."
+                align="center"
+                rightClassName="w-44">
+                <Select
+                  value={dpsMetric}
+                  onValueChange={(v) => setDpsMetric(v as DpsMetric)}>
+                  <SelectTrigger className="text-xs w-44 bg-white/5 border-white/10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DPS_METRICS.map(({ value, label }) => (
+                      <SelectItem
+                        key={value}
+                        value={value}
+                        className="px-4 py-2">
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </SettingsRow>
+              <SettingsRow
+                title="표시 형식"
+                align="center"
+                rightClassName="w-44">
+                <Select
+                  value={displayMode}
+                  onValueChange={(v) => setDisplayMode(v as DisplayMode)}>
+                  <SelectTrigger className="text-xs w-44 bg-white/5 border-white/10 ">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DISPLAY_MODES.map(({ value, label }) => (
+                      <SelectItem
+                        key={value}
+                        value={value}
+                        className="px-4 py-2">
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </SettingsRow>
+              <SettingsRow
+                title="보스 표시 형식"
+                align="center"
+                rightClassName="w-44">
+                <Select
+                  value={targetInfoDisplayMode}
+                  onValueChange={(v) => setTargetInfoDisplayMode(v as TargetInfoDisplayMode)}>
+                  <SelectTrigger className="text-xs w-44 bg-white/5 border-white/10 ">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TARGET_INFO_DISPLAY_MODES.map(({ value, label }) => (
+                      <SelectItem
+                        key={value}
+                        value={value}
+                        className="px-4 py-2">
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </SettingsRow>
+              <SettingsRow
+                title="아이디 표기"
+                align="center"
+                rightClassName="w-44">
+                <Select
+                  value={nameDisplay}
+                  onValueChange={(v) => setNameDisplay(v as NameDisplay)}>
+                  <SelectTrigger className="text-xs w-44 bg-white/5 border-white/10 ">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NAME_DISPLAY_MODES.map(({ value, label }) => (
+                      <SelectItem
+                        key={value}
+                        value={value}
+                        className="px-4 py-2">
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </SettingsRow>
+              <SettingsRow
+                title="행 높이"
+                align="center"
+                rightClassName="w-44">
+                <div className="flex h-8 items-center gap-3 ">
+                  <Slider
+                    min={24}
+                    max={80}
+                    step={1}
+                    className="cursor-pointer"
+                    value={[rowHeight]}
+                    onValueChange={(value) => setRowHeight(value[0])}
+                  />
+                  <span className="text-xs opacity-60 w-12 text-right tabular-nums">{rowHeight}px</span>
+                </div>
+              </SettingsRow>
+            </SettingsItem>
+            </>
+          )}
 
-        <SettingsItem>
-          <SettingsRow
-            title="버튼 위치"
-            description="헤더 버튼의 위치를 설정합니다">
-            <Select
-              value={headerPosition}
-              onValueChange={(v) => setHeaderPosition(v as HeaderPosition)}>
-              <SelectTrigger className="w-24 bg-white/5 border-white/10 ">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem
-                  value="top"
-                  className="px-4 py-2">
-                  상단
-                </SelectItem>
-                <SelectItem
-                  value="bottom"
-                  className="px-4 py-2">
-                  하단
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </SettingsRow>
-        </SettingsItem>
+          {tab === "theme" && (
+            <>
+              <SettingsItem title="투명도 조정">
+                <SettingsRow
+                  title="미터 목록 투명도"
+                  align="center"
+                  rightClassName="w-44">
+                  <div className="flex h-8 items-center gap-3">
+                    <Slider
+                      min={0.1}
+                      max={1}
+                      step={0.05}
+                      className="cursor-pointer"
+                      value={[meterListOpacity]}
+                      onValueChange={(value) => setMeterListOpacity(value[0])}
+                    />
+                    <span className="text-xs opacity-60 w-12 text-right tabular-nums">
+                      {Math.round(meterListOpacity * 100)}%
+                    </span>
+                  </div>
+                </SettingsRow>
+                <SettingsRow
+                  title="미터 배경 투명도"
+                  align="center"
+                  rightClassName="w-44">
+                  <div className="flex h-8 items-center gap-3">
+                    <Slider
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      className="cursor-pointer"
+                      value={[meterOpacity]}
+                      onValueChange={(value) => setMeterOpacity(value[0])}
+                    />
+                    <span className="text-xs opacity-60 w-12 text-right tabular-nums">
+                      {Math.round(meterOpacity * 100)}%
+                    </span>
+                  </div>
+                </SettingsRow>
+              </SettingsItem>
+              <SettingsItem title="유저 이름 색상">
+                <div className="flex flex-col gap-2.5">
+                  <ColorSwatch
+                    label="천족"
+                    value={theme.serverAColor}
+                    onChange={(v) => setThemeColor("serverAColor", v)}
+                  />
+                  <ColorSwatch
+                    label="마족"
+                    value={theme.serverBColor}
+                    onChange={(v) => setThemeColor("serverBColor", v)}
+                  />
+                </div>
+              </SettingsItem>
+              <SettingsItem title="미터 바 색상">
+                <div className="flex flex-col gap-2.5">
+                  <GradientRow
+                    label="내 캐릭터"
+                    value={theme.userBar}
+                    onChange={(v) => setThemeColor("userBar", v)}
+                  />
+                  <GradientRow
+                    label="일반"
+                    value={theme.normalBar}
+                    onChange={(v) => setThemeColor("normalBar", v)}
+                  />
+                  <GradientRow
+                    label="경고 (기여도 5% 미만)"
+                    value={theme.warningBar}
+                    onChange={(v) => setThemeColor("warningBar", v)}
+                  />
+                  <GradientRow
+                    label="에러 (기여도 3% 미만)"
+                    value={theme.errorBar}
+                    onChange={(v) => setThemeColor("errorBar", v)}
+                  />
+                </div>
+              </SettingsItem>
+              <SettingsItem title="미터 텍스트 색상">
+                <div className="flex flex-col gap-2.5">
+                  <ColorSwatch
+                    label="누적"
+                    value={theme.meterStatAmount}
+                    onChange={(v) => setThemeColor("meterStatAmount", v)}
+                  />
+                  <ColorSwatch
+                    label="DPS"
+                    value={theme.meterStatDps}
+                    onChange={(v) => setThemeColor("meterStatDps", v)}
+                  />
+                  <ColorSwatch
+                    label="퍼센트"
+                    value={theme.meterStatPercent}
+                    onChange={(v) => setThemeColor("meterStatPercent", v)}
+                  />
+                  <ColorSwatch
+                    label="전투 시간"
+                    value={theme.combatTimeColor}
+                    onChange={(v) => setThemeColor("combatTimeColor", v)}
+                  />
+                </div>
+              </SettingsItem>
+              <SettingsItem title="보스 / 전투 기록">
+                <div className="flex flex-col gap-2.5">
+                  <GradientRow
+                    label="타겟 / 전투 기록"
+                    value={theme.bossBar}
+                    onChange={(v) => setThemeColor("bossBar", v)}
+                  />
+                </div>
+                <div className="flex flex-col gap-2.5">
+                  <ColorSwatch
+                    label="남은 체력 / 경과 시간"
+                    value={theme.bossRightValue}
+                    onChange={(v) => setThemeColor("bossRightValue", v)}
+                  />
+                </div>
+              </SettingsItem>
+              <SettingsItem className="pb-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetTheme}
+                  className="w-full opacity-50 hover:opacity-100 hover:bg-amber-500/10 transition-opacity flex items-center gap-2 text-xs">
+                  <RotateCcw className="w-3 h-3" />
+                  빛 레기온 테마로 초기화
+                </Button>
+              </SettingsItem>
+            </>
+          )}
 
-        <div className="my-3 flex items-center gap-2">
-          <div className="flex-1 h-px bg-white/10" />
-          <span className="text-xs opacity-40 px-2 shrink-0">최소화</span>
-          <div className="flex-1 h-px bg-white/10" />
+          {tab === "controls" && (
+            <>
+              <SettingsItem>
+                <SettingsRow
+                  title="최소화 단축키 설정"
+                  align="center"
+                  rightClassName="w-44">
+                  <SettingsControlInput
+                    readOnly
+                    onFocus={startHide}
+                    onBlur={stopHide}
+                    value={formatHotkey(pendingHide.modifiers, pendingHide.vkCode)}
+                    className="cursor-pointer"
+                  />
+                </SettingsRow>
+                <SettingsRow
+                  title="패스스루"
+                  description="다른 모니터로 옮긴 뒤에는 빈 투명 영역이 클릭을 먹을 수 있습니다. 패스스루(기본 Ctrl+T)로 게임을 클릭하세요.">
+                  <Switch
+                    checked={isClickThrough}
+                    disabled
+                    className="data-[state=checked]:bg-amber-500"
+                  />
+                </SettingsRow>
+                <SettingsRow
+                  title="패스스루 단축키 설정"
+                  align="center"
+                  rightClassName="w-44">
+                  <SettingsControlInput
+                    readOnly
+                    onFocus={startClickThrough}
+                    onBlur={stopClickThrough}
+                    value={formatHotkey(pendingClickThrough.modifiers, pendingClickThrough.vkCode)}
+                    className="cursor-pointer"
+                  />
+                </SettingsRow>
+              </SettingsItem>
+              <SettingsItem className="pb-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetMeterPosition}
+                  className="w-full opacity-50 hover:opacity-100 hover:bg-transition transition-opacity flex items-center gap-2 text-xs">
+                  <RotateCcw className="w-3 h-3" />
+                  미터기 위치 초기화
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetJoinPanelPosition}
+                  className="w-full opacity-50 hover:opacity-100 hover:bg-transition transition-opacity flex items-center gap-2 text-xs">
+                  <RotateCcw className="w-3 h-3" />
+                  파티 신청 위치 초기화
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetSidePanelPosition}
+                  className="w-full opacity-50 hover:opacity-100 hover:bg-transition transition-opacity flex items-center gap-2 text-xs">
+                  <RotateCcw className="w-3 h-3" />
+                  사이드 패널 위치 초기화
+                </Button>
+              </SettingsItem>
+            </>
+          )}
+
+          {tab === "tracker" && (
+            <SettingsItem>
+              <SettingsRow
+                title="추적 오버레이"
+                description="미터기와 다른 창으로 뜹니다. 따로 드래그할 수 있고, 게임 위에 고정합니다.">
+                <Switch
+                  checked={trackerOverlayEnabled}
+                  onCheckedChange={setTrackerOverlayEnabled}
+                  className="data-[state=checked]:bg-amber-500"
+                />
+              </SettingsRow>
+              <SettingsRow
+                title="빈 오드·열쇠 칸"
+                description="인벤토리 패킷이 오기 전에는 값이 없습니다. 끄면 빈 칸(—)을 숨깁니다.">
+                <Switch
+                  checked={showEmptyResourceChips}
+                  onCheckedChange={setShowEmptyResourceChips}
+                  className="data-[state=checked]:bg-amber-500"
+                />
+              </SettingsRow>
+              {trackerOverlayEnabled && <TrackerSkillPicker />}
+            </SettingsItem>
+          )}
+
+          {tab === "guild" && (
+            <>
+              <GuildPairSettings />
+              <SettingsItem>
+                <SettingsRow
+                  title="길드·보스 알람"
+                  description="연동되면 아그로·우선 필드보스 임박을 미터 위에 띄웁니다.">
+                  <Switch
+                    checked={guildAlertsEnabled}
+                    onCheckedChange={setGuildAlertsEnabled}
+                    className="data-[state=checked]:bg-amber-500"
+                  />
+                </SettingsRow>
+              </SettingsItem>
+            </>
+          )}
         </div>
-        <SettingsItem>
-          <SettingsRow
-            title="자동 숨김"
-            description="아이온2가 포커싱 상태가 아닐 경우 자동으로 숨깁니다.">
-            <Switch
-              checked={isAutoHide}
-              onCheckedChange={toggleAutoHide}
-              className="data-[state=checked]:bg-amber-500"
-            />
-          </SettingsRow>
-          <SettingsRow
-            title="최소화 단축키 설정"
-            align="center"
-            rightClassName="w-44">
-            <SettingsControlInput
-              readOnly
-              onFocus={startHide}
-              onBlur={stopHide}
-              value={formatHotkey(pendingHide.modifiers, pendingHide.vkCode)}
-              className="cursor-pointer"
-            />
-          </SettingsRow>
-        </SettingsItem>
 
-        <div className="my-3 flex items-center gap-2">
-          <div className="flex-1 h-px bg-white/10" />
-          <span className="text-xs opacity-40 px-2 shrink-0">패스스루</span>
-          <div className="flex-1 h-px bg-white/10" />
-        </div>
-        <SettingsItem>
-          <SettingsRow
-            title="패스스루"
-            description="다른 모니터로 옮긴 뒤에는 빈 투명 영역이 클릭을 먹을 수 있습니다. 패스스루(기본 Ctrl+T)로 게임을 클릭하세요.">
-            <Switch
-              checked={isClickThrough}
-              disabled
-              className="data-[state=checked]:bg-amber-500"
-            />
-          </SettingsRow>
-
-          <SettingsRow
-            title="패스스루 단축키 설정"
-            align="center"
-            rightClassName="w-44">
-            <SettingsControlInput
-              readOnly
-              onFocus={startClickThrough}
-              onBlur={stopClickThrough}
-              value={formatHotkey(pendingClickThrough.modifiers, pendingClickThrough.vkCode)}
-              className="cursor-pointer"
-            />
-          </SettingsRow>
-        </SettingsItem>
-
-        <div className="my-3 flex items-center gap-2">
-          <div className="flex-1 h-px bg-white/10" />
-          <span className="text-xs opacity-40 px-2 shrink-0">컴팩트 모드</span>
-          <div className="flex-1 h-px bg-white/10" />
-        </div>
-        <SettingsItem>
-          <SettingsRow title="컴팩트 모드">
-            <Switch
-              checked={isMinimal}
-              onCheckedChange={(v) => setIsMinimal(v)}
-              className="data-[state=checked]:bg-amber-500"
-            />
-          </SettingsRow>
-
-          <SettingsRow title="컴팩트 모드 중 전투 시간 표시">
-            <Switch
-              checked={showCombatTimerInMinimal}
-              onCheckedChange={(v) => setShowCombatTimerInMinimal(v)}
-              className="data-[state=checked]:bg-amber-500 disabled:opacity-30"
-            />
-          </SettingsRow>
-
-          <SettingsRow title="컴팩트 모드 중 보스 표시">
-            <Switch
-              checked={showTargetInfoInMinimal}
-              onCheckedChange={(v) => setShowTargetInfoInMinimal(v)}
-              className="data-[state=checked]:bg-amber-500 disabled:opacity-30"
-            />
-          </SettingsRow>
-        </SettingsItem>
-
-        <div className="my-3 flex items-center gap-2">
-          <div className="flex-1 h-px bg-white/10" />
-          <span className="text-xs opacity-40 px-2 shrink-0">미터기 설정</span>
-          <div className="flex-1 h-px bg-white/10" />
-        </div>
-        <SettingsItem>
-          <SettingsRow
-            title="기여도 표시 방식"
-            align="center"
-            rightClassName="w-44">
-            <Select
-              value={contributionMode}
-              onValueChange={(v) => setContributionMode(v as ContributionMode)}>
-              <SelectTrigger className="text-xs w-44 bg-white/5 border-white/10">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem
-                  value="contribution"
-                  className="px-4 py-2">
-                  파티 기여도 (상대)
-                </SelectItem>
-                <SelectItem
-                  value="entireContribution"
-                  className="px-4 py-2">
-                  보스 체력 기여도 (절대)
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </SettingsRow>
-
-          <SettingsRow
-            title="딜 지표"
-            description="rDPS = 실제 피해. nDPS = 파티 시너지 근사 제거(낫터기와 다를 수 있음)."
-            align="center"
-            rightClassName="w-44">
-            <Select
-              value={dpsMetric}
-              onValueChange={(v) => setDpsMetric(v as DpsMetric)}>
-              <SelectTrigger className="text-xs w-44 bg-white/5 border-white/10">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DPS_METRICS.map(({ value, label }) => (
-                  <SelectItem
-                    key={value}
-                    value={value}
-                    className="px-4 py-2">
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SettingsRow>
-
-          <SettingsRow
-            title="표시 형식"
-            align="center"
-            rightClassName="w-44">
-            <Select
-              value={displayMode}
-              onValueChange={(v) => setDisplayMode(v as DisplayMode)}>
-              <SelectTrigger className="text-xs w-44 bg-white/5 border-white/10 ">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DISPLAY_MODES.map(({ value, label }) => (
-                  <SelectItem
-                    key={value}
-                    value={value}
-                    className="px-4 py-2">
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SettingsRow>
-
-          <SettingsRow
-            title="보스 표시 형식"
-            align="center"
-            rightClassName="w-44">
-            <Select
-              value={targetInfoDisplayMode}
-              onValueChange={(v) => setTargetInfoDisplayMode(v as TargetInfoDisplayMode)}>
-              <SelectTrigger className="text-xs w-44 bg-white/5 border-white/10 ">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TARGET_INFO_DISPLAY_MODES.map(({ value, label }) => (
-                  <SelectItem
-                    key={value}
-                    value={value}
-                    className="px-4 py-2">
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SettingsRow>
-
-          <SettingsRow
-            title="아이디 표기"
-            align="center"
-            rightClassName="w-44">
-            <Select
-              value={nameDisplay}
-              onValueChange={(v) => setNameDisplay(v as NameDisplay)}>
-              <SelectTrigger className="text-xs w-44 bg-white/5 border-white/10 ">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {NAME_DISPLAY_MODES.map(({ value, label }) => (
-                  <SelectItem
-                    key={value}
-                    value={value}
-                    className="px-4 py-2">
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SettingsRow>
-
-          <SettingsRow
-            title="행 높이"
-            align="center"
-            rightClassName="w-44">
-            <div className="flex h-8 items-center gap-3 ">
-              <Slider
-                min={24}
-                max={80}
-                step={1}
-                className="cursor-pointer"
-                value={[rowHeight]}
-                onValueChange={(value) => setRowHeight(value[0])}
-              />
-              <span className="text-xs opacity-60 w-12 text-right tabular-nums">{rowHeight}px</span>
-            </div>
-          </SettingsRow>
-        </SettingsItem>
-
-        <div className="my-3 flex items-center gap-2">
-          <div className="flex-1 h-px bg-white/10" />
-          <span className="text-xs opacity-40 px-2 shrink-0">테마 설정</span>
-          <div className="flex-1 h-px bg-white/10" />
-        </div>
-        <SettingsItem title="투명도 조정">
-          <SettingsRow
-            title="미터 목록 투명도"
-            align="center"
-            rightClassName="w-44">
-            <div className="flex h-8 items-center gap-3">
-              <Slider
-                min={0.1}
-                max={1}
-                step={0.05}
-                className="cursor-pointer"
-                value={[meterListOpacity]}
-                onValueChange={(value) => setMeterListOpacity(value[0])}
-              />
-              <span className="text-xs opacity-60 w-12 text-right tabular-nums">
-                {Math.round(meterListOpacity * 100)}%
-              </span>
-            </div>
-          </SettingsRow>
-          <SettingsRow
-            title="미터 배경 투명도"
-            align="center"
-            rightClassName="w-44">
-            <div className="flex h-8 items-center gap-3">
-              <Slider
-                min={0}
-                max={1}
-                step={0.05}
-                className="cursor-pointer"
-                value={[meterOpacity]}
-                onValueChange={(value) => setMeterOpacity(value[0])}
-              />
-              <span className="text-xs opacity-60 w-12 text-right tabular-nums">
-                {Math.round(meterOpacity * 100)}%
-              </span>
-            </div>
-          </SettingsRow>
-        </SettingsItem>
-
-        <SettingsItem title="유저 이름 색상">
-          <div className="flex flex-col gap-2.5">
-            <ColorSwatch
-              label="천족"
-              value={theme.serverAColor}
-              onChange={(v) => setThemeColor("serverAColor", v)}
-            />
-            <ColorSwatch
-              label="마족"
-              value={theme.serverBColor}
-              onChange={(v) => setThemeColor("serverBColor", v)}
-            />
-          </div>
-        </SettingsItem>
-        <SettingsItem title="미터 바 색상">
-          <div className="flex flex-col gap-2.5">
-            <GradientRow
-              label="내 캐릭터"
-              value={theme.userBar}
-              onChange={(v) => setThemeColor("userBar", v)}
-            />
-            <GradientRow
-              label="일반"
-              value={theme.normalBar}
-              onChange={(v) => setThemeColor("normalBar", v)}
-            />
-            <GradientRow
-              label="경고 (기여도 5% 미만)"
-              value={theme.warningBar}
-              onChange={(v) => setThemeColor("warningBar", v)}
-            />
-            <GradientRow
-              label="에러 (기여도 3% 미만)"
-              value={theme.errorBar}
-              onChange={(v) => setThemeColor("errorBar", v)}
-            />
-          </div>
-        </SettingsItem>
-
-        <SettingsItem title="미터 텍스트 색상">
-          <div className="flex flex-col gap-2.5">
-            <ColorSwatch
-              label="누적"
-              value={theme.meterStatAmount}
-              onChange={(v) => setThemeColor("meterStatAmount", v)}
-            />
-            <ColorSwatch
-              label="DPS"
-              value={theme.meterStatDps}
-              onChange={(v) => setThemeColor("meterStatDps", v)}
-            />
-            <ColorSwatch
-              label="퍼센트"
-              value={theme.meterStatPercent}
-              onChange={(v) => setThemeColor("meterStatPercent", v)}
-            />
-            <ColorSwatch
-              label="전투 시간"
-              value={theme.combatTimeColor}
-              onChange={(v) => setThemeColor("combatTimeColor", v)}
-            />
-          </div>
-        </SettingsItem>
-
-        <SettingsItem title="보스 / 전투 기록">
-          <div className="flex flex-col gap-2.5">
-            <GradientRow
-              label="타겟 / 전투 기록"
-              value={theme.bossBar}
-              onChange={(v) => setThemeColor("bossBar", v)}
-            />
-          </div>
-          <div className="flex flex-col gap-2.5">
-            <ColorSwatch
-              label="남은 체력 / 경과 시간"
-              value={theme.bossRightValue}
-              onChange={(v) => setThemeColor("bossRightValue", v)}
-            />
-          </div>
-        </SettingsItem>
-
-        <SettingsItem className="pb-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={resetTheme}
-            className="w-full opacity-50 hover:opacity-100 hover:bg-amber-500/10 transition-opacity flex items-center gap-2 text-xs">
-            <RotateCcw className="w-3 h-3" />
-            빛 레기온 테마로 초기화
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={resetMeterPosition}
-            className="w-full opacity-50 hover:opacity-100 hover:bg-transition transition-opacity flex items-center gap-2 text-xs">
-            <RotateCcw className="w-3 h-3" />
-            미터기 위치 초기화
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={resetJoinPanelPosition}
-            className="w-full opacity-50 hover:opacity-100 hover:bg-transition transition-opacity flex items-center gap-2 text-xs">
-            <RotateCcw className="w-3 h-3" />
-            파티 신청 위치 초기화
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={resetSidePanelPosition}
-            className="w-full opacity-50 hover:opacity-100 hover:bg-transition transition-opacity flex items-center gap-2 text-xs">
-            <RotateCcw className="w-3 h-3" />
-            사이드 패널 위치 초기화
-          </Button>
-        </SettingsItem>
+        <SettingsMeterPreview />
       </div>
-      <div className="flex w-full min-w-0 shrink-0 justify-end gap-2 border-t border-white/10 pt-4">
+      <div className="flex w-full min-w-0 shrink-0 justify-end gap-2 border-t border-white/10 px-4 py-3">
         <Button
           onClick={handleCancel}
           size="lg"
