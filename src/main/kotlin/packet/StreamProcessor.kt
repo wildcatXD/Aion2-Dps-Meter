@@ -983,17 +983,20 @@ class StreamProcessor() {
         offset += 2
 
         val mobIdInfo = readVarInt(packet, offset)
+        if (mobIdInfo.length <= 0) return false
         offset += mobIdInfo.length
-        val mobCode = DataManager.mobId(mobIdInfo.value) ?: return true
-        val mob = DataManager.mob(mobCode) ?: return true
-        if (!mob.boss) return true
 
         offset += readVarInt(packet, offset).length
         offset += readVarInt(packet, offset).length
         offset += readVarInt(packet, offset).length
+        if (offset + 4 > packet.size) return false
 
         val mobHp = parseUInt32le(packet, offset)
         DataManager.mobHp(mobIdInfo.value, mobHp)
+        val maxHp = DataManager.mobMaxHp(mobIdInfo.value) ?: 0
+        if (mobHp > maxHp) {
+            DataManager.saveMobMaxHp(mobIdInfo.value, mobHp)
+        }
         return true
 
     }

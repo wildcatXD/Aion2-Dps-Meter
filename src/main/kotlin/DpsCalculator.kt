@@ -99,7 +99,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
                 if (user.job == null) {
                     user.job = JobClass.convertFromSkill(packet.getSkillCode1())
                 }
-                val damage = packet.getDamage().toDouble()
+                val damage = packet.effectiveDamage().toDouble()
                 cachedInfo.getOrPut(user.id) { DpsInformation() }.addDamage(damage)
                 val extra = NdpsSynergy.partyExtraAmp(user.id, packet.getTimeStamp())
                 cachedNdpsAmount[user.id] = (cachedNdpsAmount[user.id] ?: 0.0) +
@@ -196,10 +196,10 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
                 val analyzedSkill = analyzedData[skillName]!!
                 if (it.isDoT()) {
                     analyzedSkill.dotTimes++
-                    analyzedSkill.dotDamageAmount += it.getDamage()
+                    analyzedSkill.dotDamageAmount += it.effectiveDamage().toInt()
                 } else {
                     analyzedSkill.times++
-                    analyzedSkill.damageAmount += it.getDamage()
+                    analyzedSkill.damageAmount += it.effectiveDamage().toInt()
                     if (it.isCrit()) analyzedSkill.critTimes++
                     if (it.getSpecials().contains(SpecialDamage.BACK)) analyzedSkill.backTimes++
                     if (it.getSpecials().contains(SpecialDamage.PARRY)) analyzedSkill.parryTimes++
@@ -274,7 +274,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
             val actor = DataManager.summonerId(packet.getActorId()) ?: packet.getActorId()
             val extra = NdpsSynergy.partyExtraAmp(actor, packet.getTimeStamp())
             sums[actor] = (sums[actor] ?: 0.0) +
-                NdpsSynergy.normalizeHit(packet.getDamage().toDouble(), extra)
+                NdpsSynergy.normalizeHit(packet.effectiveDamage().toDouble(), extra)
         }
         for ((uid, nAmount) in sums) {
             val info = report.information[uid] ?: continue
