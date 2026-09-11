@@ -6,6 +6,7 @@ import { formatHotkey } from "@/utils/hotKey";
 import { Button } from "@/components/ui/button";
 import {
   Bell,
+  Crosshair,
   Gauge,
   Keyboard,
   Palette,
@@ -50,13 +51,14 @@ interface Props {
   registerHeaderClose?: (handler: (() => void) | null) => void;
 }
 
-type SettingsTab = "general" | "meter" | "theme" | "controls" | "guild";
+type SettingsTab = "general" | "meter" | "theme" | "controls" | "tracker" | "guild";
 
 const TABS: { id: SettingsTab; label: string; icon: typeof Gauge }[] = [
   { id: "general", label: "일반", icon: SlidersHorizontal },
   { id: "meter", label: "미터", icon: Gauge },
   { id: "theme", label: "테마", icon: Palette },
   { id: "controls", label: "조작", icon: Keyboard },
+  { id: "tracker", label: "추적", icon: Crosshair },
   { id: "guild", label: "길드", icon: Bell },
 ];
 
@@ -319,7 +321,7 @@ export const SettingsPanel = ({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <nav className="flex w-[116px] shrink-0 flex-col gap-0.5 border-r border-amber-500/15 bg-black/25 px-1.5 py-2">
+        <nav className="flex w-[120px] shrink-0 flex-col gap-0.5 border-r border-amber-500/15 bg-black/25 px-1.5 py-2">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -382,9 +384,27 @@ export const SettingsPanel = ({
                     </SelectContent>
                   </Select>
                 </SettingsRow>
+              </SettingsItem>
+              <SettingsItem>
+                <SettingsRow
+                  title="자동 숨김"
+                  description="아이온2가 포커스가 아닐 때 미터기를 숨깁니다.">
+                  <Switch
+                    checked={isAutoHide}
+                    onCheckedChange={toggleAutoHide}
+                    className="data-[state=checked]:bg-amber-500"
+                  />
+                </SettingsRow>
+              </SettingsItem>
+            </>
+          )}
+
+          {tab === "meter" && (
+            <>
+              <SettingsItem title="레이아웃">
                 <SettingsRow
                   title="버튼 위치"
-                  description="헤더 버튼의 위치를 설정합니다">
+                  description="미터 헤더 버튼을 위 또는 아래에 둡니다.">
                   <Select
                     value={headerPosition}
                     onValueChange={(v) => setHeaderPosition(v as HeaderPosition)}>
@@ -405,18 +425,9 @@ export const SettingsPanel = ({
                     </SelectContent>
                   </Select>
                 </SettingsRow>
-              </SettingsItem>
-              <SettingsItem>
                 <SettingsRow
-                  title="자동 숨김"
-                  description="아이온2가 포커싱 상태가 아닐 경우 자동으로 숨깁니다.">
-                  <Switch
-                    checked={isAutoHide}
-                    onCheckedChange={toggleAutoHide}
-                    className="data-[state=checked]:bg-amber-500"
-                  />
-                </SettingsRow>
-                <SettingsRow title="컴팩트 모드">
+                  title="컴팩트 모드"
+                  description="헤더를 숨기고 전투 중 미터만 남깁니다.">
                   <Switch
                     checked={isMinimal}
                     onCheckedChange={(v) => setIsMinimal(v)}
@@ -426,6 +437,7 @@ export const SettingsPanel = ({
                 <SettingsRow title="컴팩트 모드 중 전투 시간 표시">
                   <Switch
                     checked={showCombatTimerInMinimal}
+                    disabled={!isMinimal}
                     onCheckedChange={(v) => setShowCombatTimerInMinimal(v)}
                     className="data-[state=checked]:bg-amber-500 disabled:opacity-30"
                   />
@@ -433,16 +445,13 @@ export const SettingsPanel = ({
                 <SettingsRow title="컴팩트 모드 중 보스 표시">
                   <Switch
                     checked={showTargetInfoInMinimal}
+                    disabled={!isMinimal}
                     onCheckedChange={(v) => setShowTargetInfoInMinimal(v)}
                     className="data-[state=checked]:bg-amber-500 disabled:opacity-30"
                   />
                 </SettingsRow>
               </SettingsItem>
-            </>
-          )}
-
-          {tab === "meter" && (
-            <SettingsItem>
+              <SettingsItem title="숫자 표시">
               <SettingsRow
                 title="기여도 표시 방식"
                 align="center"
@@ -573,6 +582,7 @@ export const SettingsPanel = ({
                 </div>
               </SettingsRow>
             </SettingsItem>
+            </>
           )}
 
           {tab === "theme" && (
@@ -772,6 +782,30 @@ export const SettingsPanel = ({
             </>
           )}
 
+          {tab === "tracker" && (
+            <SettingsItem>
+              <SettingsRow
+                title="추적 오버레이"
+                description="미터기와 다른 창으로 뜹니다. 따로 드래그할 수 있고, 게임 위에 고정합니다.">
+                <Switch
+                  checked={trackerOverlayEnabled}
+                  onCheckedChange={setTrackerOverlayEnabled}
+                  className="data-[state=checked]:bg-amber-500"
+                />
+              </SettingsRow>
+              <SettingsRow
+                title="빈 오드·열쇠 칸"
+                description="인벤토리 패킷이 오기 전에는 값이 없습니다. 끄면 빈 칸(—)을 숨깁니다.">
+                <Switch
+                  checked={showEmptyResourceChips}
+                  onCheckedChange={setShowEmptyResourceChips}
+                  className="data-[state=checked]:bg-amber-500"
+                />
+              </SettingsRow>
+              {trackerOverlayEnabled && <TrackerSkillPicker />}
+            </SettingsItem>
+          )}
+
           {tab === "guild" && (
             <>
               <GuildPairSettings />
@@ -785,25 +819,6 @@ export const SettingsPanel = ({
                     className="data-[state=checked]:bg-amber-500"
                   />
                 </SettingsRow>
-                <SettingsRow
-                  title="추적 오버레이"
-                  description="미터기와 다른 창으로 뜹니다. 따로 드래그할 수 있고, 게임 위에 고정합니다. 고른 스킬의 버프 남은 시간.">
-                  <Switch
-                    checked={trackerOverlayEnabled}
-                    onCheckedChange={setTrackerOverlayEnabled}
-                    className="data-[state=checked]:bg-amber-500"
-                  />
-                </SettingsRow>
-                <SettingsRow
-                  title="빈 오드·열쇠 칸"
-                  description="인벤토리 패킷이 오기 전에는 값이 없습니다. 끄면 빈 칸(—)을 숨깁니다.">
-                  <Switch
-                    checked={showEmptyResourceChips}
-                    onCheckedChange={setShowEmptyResourceChips}
-                    className="data-[state=checked]:bg-amber-500"
-                  />
-                </SettingsRow>
-                {trackerOverlayEnabled && <TrackerSkillPicker />}
               </SettingsItem>
             </>
           )}
