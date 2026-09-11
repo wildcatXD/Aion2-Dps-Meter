@@ -158,6 +158,7 @@ export const SettingsPanel = ({
     clickThroughHotkey,
     isClickThrough,
     isAutoHide,
+    isGameWindowOnly,
     guildAlertsEnabled,
     trackerOverlayEnabled,
     showEmptyResourceChips,
@@ -181,6 +182,7 @@ export const SettingsPanel = ({
       clickThroughHotkey: s.clickThroughHotkey,
       isClickThrough: s.isClickThrough,
       isAutoHide: s.isAutoHide,
+      isGameWindowOnly: s.isGameWindowOnly,
       guildAlertsEnabled: s.guildAlertsEnabled,
       trackerOverlayEnabled: s.trackerOverlayEnabled,
       showEmptyResourceChips: s.showEmptyResourceChips,
@@ -207,6 +209,7 @@ export const SettingsPanel = ({
     setContributionMode,
     setClickThroughHotkey,
     toggleAutoHide,
+    toggleGameWindowOnly,
     resetJoinPanelPosition,
     resetSidePanelPosition,
     resetMeterPosition,
@@ -392,6 +395,15 @@ export const SettingsPanel = ({
                   <Switch
                     checked={isAutoHide}
                     onCheckedChange={toggleAutoHide}
+                    className="data-[state=checked]:bg-amber-500"
+                  />
+                </SettingsRow>
+                <SettingsRow
+                  title="아이온 창 위에만"
+                  description="디스코드·브라우저 같은 다른 창 위로는 올라가지 않습니다. 끄면 모든 창 위에 고정합니다.">
+                  <Switch
+                    checked={isGameWindowOnly}
+                    onCheckedChange={toggleGameWindowOnly}
                     className="data-[state=checked]:bg-amber-500"
                   />
                 </SettingsRow>

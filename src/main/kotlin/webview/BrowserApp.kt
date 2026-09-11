@@ -121,6 +121,13 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
         fun isAutoHide(): Boolean = isAutoHide
 
+        fun toggleGameWindowOnly() {
+            isGameWindowOnly = !isGameWindowOnly
+            PropertyHandler.setProperty("isGameWindowOnly", isGameWindowOnly.toString())
+        }
+
+        fun isGameWindowOnly(): Boolean = isGameWindowOnly
+
         fun getClickThroughHotkey(): String {
             return HotkeyHandler.getClickThroughHotkey().toString()
         }
@@ -306,7 +313,12 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     private var isAutoHide = PropertyHandler.getProperty("isAutoHide")?.toBooleanStrictOrNull() ?: true
 
     @Volatile
+    private var isGameWindowOnly = PropertyHandler.getProperty("isGameWindowOnly")?.toBooleanStrictOrNull() ?: true
+
+    @Volatile
     private var aionEverFocused = false
+
+    private var overlayStage: Stage? = null
 
     @Volatile
     private var isClickThrough = false
@@ -367,6 +379,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             }
         })
 
+        overlayStage = stage
         stage.show()
         logger.info("오버레이 창 표시 version={} {}x{} origin=({}, {})", version, screenBounds.width, screenBounds.height, screenBounds.minX, screenBounds.minY)
         bindOverlayHwnd(MAIN_TITLE) { overlayHwnd = it }
@@ -424,24 +437,10 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         CoroutineScope(Dispatchers.IO).launch {
             while (true) {
                 kotlinx.coroutines.delay(300)
-                if (!isVisible) continue
-                if (!isAutoHide) {
-                    Platform.runLater { stage.opacity = 1.0 }
-                    continue
-                }
-
-                val aionFocused = isAion2Focused()
-                if (!aionEverFocused) {
-                    if (aionFocused) aionEverFocused = true
-                    else continue
-                }
-
-                val shouldShow = aionFocused || isSelfFocused()
-                Platform.runLater {
-                    val opacity = if (shouldShow) 1.0 else 0.0
-                    stage.opacity = opacity
-                    if (trackerEnabled) trackerStage?.opacity = opacity
-                    if (shouldShow) raiseOverlays()
+                try {
+                    refreshOverlayLayering()
+                } catch (e: Exception) {
+                    logger.error("오버레이 Z순서 갱신 실패, 다음 주기에 재시도합니다", e)
                 }
             }
         }
@@ -476,19 +475,64 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
     private fun isAion2Focused(): Boolean {
         val hwnd = User32.INSTANCE.GetForegroundWindow() ?: return false
-        val pidRef = com.sun.jna.ptr.IntByReference()
-        User32.INSTANCE.GetWindowThreadProcessId(hwnd, pidRef)
-        val foregroundPid = pidRef.value.toLong()
+        val path = OverlayTopMost.processImagePath(hwnd) ?: return false
+        return OverlayZOrder.matchesExe(path, AION2_EXE)
+    }
 
-        val hProcess = Kernel32.INSTANCE.OpenProcess(WinNT.PROCESS_QUERY_LIMITED_INFORMATION, false, foregroundPid.toInt())
-            ?: return false
-        return try {
-            val buf = com.sun.jna.Memory(2048)
-            Psapi.INSTANCE.GetModuleFileNameEx(hProcess, null, buf, 1024)
-            val exePath = buf.getWideString(0)
-            exePath.endsWith("Aion2.exe", ignoreCase = true)
-        } finally {
-            Kernel32.INSTANCE.CloseHandle(hProcess)
+    private fun refreshOverlayLayering() {
+        val aionFocused = isAion2Focused()
+        val selfFocused = isSelfFocused()
+        if (aionFocused) aionEverFocused = true
+
+        val autoHideReady = !isAutoHide || aionEverFocused
+        val autoHideShouldShow = !isAutoHide || aionFocused || selfFocused
+        val opacity = if (!isVisible) {
+            0.0
+        } else if (!autoHideReady) {
+            1.0
+        } else if (isAutoHide && !autoHideShouldShow) {
+            0.0
+        } else {
+            1.0
+        }
+
+        val exclude = listOfNotNull(overlayHwnd, trackerHwnd)
+        val game = OverlayTopMost.findProcessMainWindow(AION2_EXE, exclude)
+        val plan = OverlayZOrder.plan(
+            mode = if (isGameWindowOnly) OverlayZOrder.Mode.GAME_WINDOW else OverlayZOrder.Mode.GLOBAL,
+            overlayVisible = isVisible && opacity > 0.0,
+            gameFound = game != null,
+            gameIsTopMost = game?.let { OverlayTopMost.isTopMost(it) } ?: false,
+            gameFocused = aionFocused,
+            selfFocused = selfFocused,
+            autoHide = isAutoHide && autoHideReady,
+            autoHideShouldShow = autoHideShouldShow,
+        )
+        applyOverlayLayering(plan, game, opacity)
+    }
+
+    private fun applyOverlayLayering(
+        plan: OverlayZOrder.Plan,
+        game: WinDef.HWND?,
+        opacity: Double,
+    ) {
+        Platform.runLater {
+            overlayStage?.isAlwaysOnTop = plan.topMost
+            trackerStage?.isAlwaysOnTop = plan.topMost
+            overlayHwnd?.let { OverlayTopMost.applyStyle(it, plan.topMost, isClickThrough) }
+            trackerHwnd?.let { OverlayTopMost.applyStyle(it, plan.topMost, isClickThrough) }
+            if (plan.placeAboveGame && game != null) {
+                overlayHwnd?.let { OverlayTopMost.placeJustAbove(it, game) }
+                val meter = overlayHwnd
+                val tracker = trackerHwnd
+                if (tracker != null && meter != null) {
+                    OverlayTopMost.placeJustAbove(tracker, meter)
+                } else {
+                    tracker?.let { OverlayTopMost.placeJustAbove(it, game) }
+                }
+            }
+            overlayStage?.opacity = opacity
+            if (trackerEnabled) trackerStage?.opacity = opacity
         }
     }
 
@@ -508,13 +552,12 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             return
         }
         store(hwnd)
-        OverlayTopMost.applyToolWindowAndTopMost(hwnd)
-        if (isClickThrough) OverlayTopMost.setClickThrough(hwnd, true)
+        OverlayTopMost.applyStyle(hwnd, topMost = true, clickThrough = isClickThrough)
     }
 
     private fun raiseOverlays() {
-        overlayHwnd?.let { OverlayTopMost.raise(it) }
-        trackerHwnd?.let { OverlayTopMost.raise(it) }
+        overlayHwnd?.let { OverlayTopMost.applyStyle(it, topMost = true, clickThrough = isClickThrough) }
+        trackerHwnd?.let { OverlayTopMost.applyStyle(it, topMost = true, clickThrough = isClickThrough) }
     }
 
     private fun showTrackerOverlay() {
@@ -579,8 +622,8 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
     private fun setClickThrough(enable: Boolean) {
         isClickThrough = enable
-        overlayHwnd?.let { OverlayTopMost.setClickThrough(it, enable) }
-        trackerHwnd?.let { OverlayTopMost.setClickThrough(it, enable) }
+        overlayHwnd?.let { OverlayTopMost.applyStyle(it, OverlayTopMost.isTopMost(it), enable) }
+        trackerHwnd?.let { OverlayTopMost.applyStyle(it, OverlayTopMost.isTopMost(it), enable) }
         val script = "onClickThroughChanged($enable)"
         Platform.runLater {
             try {
@@ -683,8 +726,12 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     private fun hideToTray(stage: Stage) {
         isVisible = false
         Platform.runLater {
+            stage.isAlwaysOnTop = false
+            trackerStage?.isAlwaysOnTop = false
             stage.opacity = 0.0
             trackerStage?.opacity = 0.0
+            overlayHwnd?.let { OverlayTopMost.applyStyle(it, topMost = false, clickThrough = isClickThrough) }
+            trackerHwnd?.let { OverlayTopMost.applyStyle(it, topMost = false, clickThrough = isClickThrough) }
         }
     }
 
@@ -701,6 +748,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     companion object {
         const val MAIN_TITLE = "Bit Dps Overlay"
         const val TRACKER_TITLE = "Bit Buff Overlay"
+        private const val AION2_EXE = "Aion2.exe"
     }
 
 }
