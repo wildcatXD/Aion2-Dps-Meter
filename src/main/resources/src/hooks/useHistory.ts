@@ -30,8 +30,8 @@ export const useHistory = () => {
   const [loading, setLoading] = useState(false);
   // const addLog = useDebugStore.getState().addLog;
 
-  const fetchHistory = useCallback(async () => {
-    setLoading(true);
+  const fetchHistory = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     try {
       const raw = window.javaBridge?.getBattleList?.();
       // addLog(`히스토리 ${raw}`);
@@ -67,11 +67,25 @@ export const useHistory = () => {
         .filter((item) => item.totalAmount > 0)
         .reverse();
 
-      setHistoryList(items);
+      setHistoryList((prev) => {
+        if (
+          prev.length === items.length &&
+          prev.every(
+            (item, i) =>
+              item.idx === items[i].idx &&
+              item.battleStart === items[i].battleStart &&
+              item.totalAmount === items[i].totalAmount &&
+              item.mobName === items[i].mobName,
+          )
+        ) {
+          return prev;
+        }
+        return items;
+      });
     } catch (e) {
       console.error("history fetch error", e);
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, []);
 

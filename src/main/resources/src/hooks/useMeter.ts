@@ -70,6 +70,9 @@ export const useMeter = () => {
   const snapshotRef = useRef<Player[] | null>(null);
   const resetPendingRef = useRef(false);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const viewingHistoryRef = useRef(false);
+  const historyArmedRef = useRef(false);
+  const armedLiveBattleStartRef = useRef(0);
 
   const setSnapshotIfChanged = useCallback((patch: Partial<MeterSnapshot>) => {
     setSnapshot((prev) => {
@@ -123,6 +126,27 @@ export const useMeter = () => {
       battleEnd?: number;
     };
 
+    if (viewingHistoryRef.current) {
+      const contributorCount = Array.isArray(combatData.contributors)
+        ? combatData.contributors.length
+        : 0;
+      const liveBattleStart = combatData.battleStart ?? 0;
+      if (!historyArmedRef.current) {
+        historyArmedRef.current = true;
+        armedLiveBattleStartRef.current = liveBattleStart;
+        return;
+      }
+      const newFightStarted =
+        contributorCount > 0 &&
+        liveBattleStart > 0 &&
+        liveBattleStart !== armedLiveBattleStartRef.current;
+      if (!newFightStarted) {
+        return;
+      }
+      viewingHistoryRef.current = false;
+      historyArmedRef.current = false;
+    }
+
     if (resetPendingRef.current) {
       const contributors = combatData.contributors ?? [];
       if (contributors.length > 0) {
@@ -152,18 +176,14 @@ export const useMeter = () => {
       }, 1000);
     }
 
-    let rowsToRender = rows;
-
     if (rows.length === 0) {
-      if (snapshotRef.current) {
-        rowsToRender = snapshotRef.current;
-      } else {
-        return;
-      }
+      if (!snapshotRef.current) return;
+      setSnapshotIfChanged({ isInCombat: false });
+      return;
     }
 
     setSnapshotIfChanged({
-      players: rowsToRender,
+      players: rows,
       targetName,
       remainHp,
       maxHp,
@@ -213,6 +233,10 @@ export const useMeter = () => {
     const sorted = [...rows].sort((a, b) => b.dps - a.dps);
 
     const battleTime = (report.battleEnd ?? 0) - (report.battleStart ?? 0);
+    viewingHistoryRef.current = true;
+    historyArmedRef.current = false;
+    armedLiveBattleStartRef.current = 0;
+    lastJsonRef.current = null;
     setSnapshotIfChanged({
       players: sorted,
       targetName,
