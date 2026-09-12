@@ -53,12 +53,31 @@ object DataManager {
         loadBuffBlacklistJson()
     }
 
+    @Volatile
+    private var dummyNameMatcherList: List<Pair<ByteArray, Int>> = emptyList()
+
     private fun loadMobJson() {
         val mobJson = object {}.javaClass.getResourceAsStream("/json/mobs.json")
             ?.bufferedReader()
             ?.readText()!!
         Json.decodeFromString<List<Mob>>(mobJson).forEach { saveMob(it) }
+        rebuildDummyNameMatchers()
     }
+
+    private fun rebuildDummyNameMatchers() {
+        val names = LinkedHashMap<String, Int>()
+        names["근접 훈련용 허수아비"] = 2300229
+        names["훈련용 허수아비"] = 2300229
+        names["훈련용 허수아비 (표본)"] = 2090773
+        for (mob in mobRepository.dummies()) {
+            names.putIfAbsent(mob.name, mob.code)
+        }
+        dummyNameMatcherList = names.entries
+            .sortedByDescending { it.key.toByteArray(Charsets.UTF_8).size }
+            .map { it.key.toByteArray(Charsets.UTF_8) to it.value }
+    }
+
+    fun dummyNameMatchers(): List<Pair<ByteArray, Int>> = dummyNameMatcherList
 
     private fun loadSkillJson() {
         val skillJson = object {}.javaClass.getResourceAsStream("/json/skills.json")
@@ -348,6 +367,14 @@ object DataManager {
         mobIdRepository.save(mid, code)
     }
 
+    fun unmappedCombatEntityIds(): List<Int> {
+        val current = currentTarget()
+        if (current > 0 && mobId(current) == null && user(current) == null) {
+            return listOf(current)
+        }
+        return emptyList()
+    }
+
     fun saveMobMaxHp(mid: Int, maxHp: Int) {
         mobIdRepository.saveMaxHp(mid, maxHp)
     }
@@ -406,10 +433,10 @@ object DataManager {
         val executor = userRepository.executor()
         if (executor != uid) {
             if (executor != 0) {
-                userRepository.get(executor)!!.isExecutor = false
+                userRepository.get(executor)?.isExecutor = false
             }
             userRepository.executor(uid)
-            userRepository.get(uid)!!.isExecutor = true
+            userRepository.get(uid)?.isExecutor = true
             resetOdeEnergy()
         }
     }
@@ -471,8 +498,11 @@ object DataManager {
         val latest = if (uid == 0) emptyMap() else useBuffRepository.latestBySkillCode(uid)
         val grouped = LinkedHashMap<Int, TrackedBuff>()
         for (buff in latest.values) {
+            if (isBuffBlacklisted(buff.skillCode)) continue
             val base = SkillCodes.base(buff.skillCode)
+            if (isBuffBlacklisted(base)) continue
             val remaining = (buff.buffEnd - now).coerceAtLeast(0L)
+            if (remaining <= 0L) continue
             val existing = grouped[base]
             if (existing == null || remaining >= existing.remainingMs) {
                 grouped[base] = TrackedBuff(

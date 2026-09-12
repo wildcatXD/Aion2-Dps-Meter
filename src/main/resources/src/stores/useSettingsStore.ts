@@ -122,6 +122,8 @@ interface SettingsState {
   isClickThrough: boolean;
   isAutoHide: boolean;
   toggleAutoHide: () => void;
+  isGameWindowOnly: boolean;
+  toggleGameWindowOnly: () => void;
   joinPanelWidth: number;
   setJoinPanelWidth: (w: number) => void;
   joinPanelHeight: number;
@@ -205,6 +207,7 @@ const defaultSettings = {
   clickThroughHotkey: { modifiers: 2, vkCode: 0x54 },
   isClickThrough: false,
   isAutoHide: true,
+  isGameWindowOnly: true,
   joinPanelWidth: 400,
   joinPanelHeight: 330,
   joinPanelX: 0,
@@ -334,6 +337,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
       clickThroughHotkey: parsedClickThroughHotkey ?? defaultSettings.clickThroughHotkey,
       isClickThrough: j.isClickThrough?.() ?? false,
       isAutoHide: j.isAutoHide?.() ?? false,
+      isGameWindowOnly: j.isGameWindowOnly?.() ?? true,
       joinPanelWidth: Number(j.loadProps?.("joinPanelWidth")) || defaultSettings.joinPanelWidth,
       joinPanelHeight: Number(j.loadProps?.("joinPanelHeight")) || defaultSettings.joinPanelHeight,
       joinPanelX: hasSavedJoinPanelX ? Number(savedJoinPanelXRaw) : defaultSettings.joinPanelX,
@@ -404,6 +408,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
     clickThroughHotkey: defaultSettings.clickThroughHotkey,
     isClickThrough: defaultSettings.isClickThrough,
     isAutoHide: defaultSettings.isAutoHide,
+    isGameWindowOnly: defaultSettings.isGameWindowOnly,
     isLoaded: defaultSettings.isLoaded,
 
     joinPanelWidth: defaultSettings.joinPanelWidth,
@@ -549,6 +554,11 @@ export const useSettingsStore = create<SettingsState>((set) => {
       set((s) => {
         jb()?.toggleAutoHide?.();
         return { isAutoHide: !s.isAutoHide };
+      }),
+    toggleGameWindowOnly: () =>
+      set((s) => {
+        jb()?.toggleGameWindowOnly?.();
+        return { isGameWindowOnly: !s.isGameWindowOnly };
       }),
     // setShowPower: (showPower) => {
     //   set({ showPower });

@@ -158,6 +158,7 @@ export const SettingsPanel = ({
     clickThroughHotkey,
     isClickThrough,
     isAutoHide,
+    isGameWindowOnly,
     guildAlertsEnabled,
     trackerOverlayEnabled,
     showEmptyResourceChips,
@@ -181,6 +182,7 @@ export const SettingsPanel = ({
       clickThroughHotkey: s.clickThroughHotkey,
       isClickThrough: s.isClickThrough,
       isAutoHide: s.isAutoHide,
+      isGameWindowOnly: s.isGameWindowOnly,
       guildAlertsEnabled: s.guildAlertsEnabled,
       trackerOverlayEnabled: s.trackerOverlayEnabled,
       showEmptyResourceChips: s.showEmptyResourceChips,
@@ -207,6 +209,7 @@ export const SettingsPanel = ({
     setContributionMode,
     setClickThroughHotkey,
     toggleAutoHide,
+    toggleGameWindowOnly,
     resetJoinPanelPosition,
     resetSidePanelPosition,
     resetMeterPosition,
@@ -392,6 +395,15 @@ export const SettingsPanel = ({
                   <Switch
                     checked={isAutoHide}
                     onCheckedChange={toggleAutoHide}
+                    className="data-[state=checked]:bg-amber-500"
+                  />
+                </SettingsRow>
+                <SettingsRow
+                  title="아이온 창 위에만"
+                  description="디스코드·브라우저 같은 다른 창 위로는 올라가지 않습니다. 끄면 모든 창 위에 고정합니다.">
+                  <Switch
+                    checked={isGameWindowOnly}
+                    onCheckedChange={toggleGameWindowOnly}
                     className="data-[state=checked]:bg-amber-500"
                   />
                 </SettingsRow>
@@ -786,7 +798,7 @@ export const SettingsPanel = ({
             <SettingsItem>
               <SettingsRow
                 title="추적 오버레이"
-                description="미터기와 다른 창으로 뜹니다. 따로 드래그할 수 있고, 게임 위에 고정합니다.">
+                description="고른 스킬만 별도 창으로 둡니다. 오드·열쇠·본인 버프는 미터기 창에 고정됩니다. 캐릭터 아래 표시는 낫터기입니다.">
                 <Switch
                   checked={trackerOverlayEnabled}
                   onCheckedChange={setTrackerOverlayEnabled}
@@ -795,7 +807,7 @@ export const SettingsPanel = ({
               </SettingsRow>
               <SettingsRow
                 title="빈 오드·열쇠 칸"
-                description="미터 헤더와 추적 창에 오드·열쇠를 둡니다. 캐릭터가 월드에 들어오면 숫자가 채워지고, 끄면 값이 없을 때 칸을 숨깁니다.">
+                description="미터기 창에 오드·열쇠를 항상 둡니다. 끄면 값이 없을 때 칸을 숨깁니다.">
                 <Switch
                   checked={showEmptyResourceChips}
                   onCheckedChange={setShowEmptyResourceChips}

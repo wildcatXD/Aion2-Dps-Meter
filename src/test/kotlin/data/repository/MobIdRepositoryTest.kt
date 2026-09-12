@@ -20,4 +20,12 @@ class MobIdRepositoryTest {
         assertEquals(2301089, repo.get(7)?.code)
         assertEquals(129475, repo.get(7)?.maxHp)
     }
+
+    @Test
+    fun unmappedIdsAreThoseWithoutCatalogCode() {
+        val repo = MobIdRepository()
+        repo.saveMaxHp(7, 129475)
+        repo.save(8, 2300229)
+        assertEquals(listOf(7), repo.unmappedIds())
+    }
 }

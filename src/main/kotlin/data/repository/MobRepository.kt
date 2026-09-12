@@ -16,4 +16,6 @@ class MobRepository {
     fun exist(id: Int): Boolean {
         return storage.containsKey(id)
     }
+
+    fun dummies(): Collection<Mob> = storage.values.filter { it.isDummy }
 }

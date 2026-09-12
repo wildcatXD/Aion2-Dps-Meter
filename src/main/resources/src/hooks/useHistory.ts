@@ -64,7 +64,7 @@ export const useHistory = () => {
             raw: report,
           };
         })
-        .filter((item) => item.battleTime > 0)
+        .filter((item) => item.totalAmount > 0)
         .reverse();
 
       setHistoryList(items);

@@ -28,6 +28,10 @@ class MobIdRepository {
         return storage.containsKey(id)
     }
 
+    fun unmappedIds(): List<Int> {
+        return storage.filter { it.value.code <= 0 }.keys.toList()
+    }
+
     fun delete(id: Int) {
         storage.remove(id)
     }

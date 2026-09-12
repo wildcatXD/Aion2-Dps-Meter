@@ -45,6 +45,7 @@ class UserRepository {
     fun flush() {
         storage.clear()
         subStorage.clear()
+        executor = 0
     }
 
     fun executor(): Int {

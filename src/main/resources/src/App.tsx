@@ -5,6 +5,7 @@ import { MeterList } from "./components/MeterList";
 import { useDragUi } from "@/hooks/drag/useDragUi";
 import { Header } from "@/components/Header.tsx";
 import { TargetInfo } from "@/components/TargetInfo";
+import { MeterStatusBar } from "@/components/MeterStatusBar";
 import { SidePanel } from "@/components/panels/SidePanel.tsx";
 import { CombatTimer } from "@/components/CombatTimer.tsx";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
@@ -235,6 +236,7 @@ export default function App() {
             />
           </div>
         )}
+        <MeterStatusBar />
         <div style={{ opacity: meterListOpacity }}>
           {players.length > 0 && (!isMinimal || showTargetInfoInMinimal) && (
             <TargetInfo

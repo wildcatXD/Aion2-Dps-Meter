@@ -35,6 +35,8 @@ declare global {
 
       isAutoHide?: () => boolean;
       toggleAutoHide?: () => void;
+      isGameWindowOnly?: () => boolean;
+      toggleGameWindowOnly?: () => void;
     };
   }
 }

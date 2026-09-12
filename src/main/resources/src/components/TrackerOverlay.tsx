@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { SkillIcon } from "@/components/SkillIcon";
-import { ResourceChips } from "@/components/ResourceChips";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { getSkillName } from "@/constants/codes";
 import { formatRemainShort } from "@/utils/formatRemain";
@@ -48,7 +47,6 @@ export function TrackerHud() {
 
   return (
     <div className="flex flex-wrap items-end gap-1.5 rounded-lg border border-amber-500/20 bg-[#0b0d17]/80 px-2 py-1.5">
-      <ResourceChips />
       {codes.map((code) => {
         const live = byCode.get(code);
         const remaining = live?.remainingMs ?? 0;
