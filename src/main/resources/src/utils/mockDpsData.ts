@@ -423,15 +423,15 @@ const MOCK_DATA = {
 };
 
 export const injectMockDpsData = () => {
-  if ((window as any).javaBridge) return;
-
   const live = {
     ...MOCK_DATA,
     information: { ...MOCK_DATA.information },
     target: { ...MOCK_DATA.target, mob: { ...MOCK_DATA.target.mob } },
   };
   const history: Array<{ first: number; second: Record<string, unknown> }> = [...MOCK_HISTORY_DATA];
-  window.setTimeout(() => {
+  const previousTimer = (window as any).__mockHistoryTimer as number | undefined;
+  if (previousTimer) window.clearTimeout(previousTimer);
+  (window as any).__mockHistoryTimer = window.setTimeout(() => {
     history.push({
       first: history.length,
       second: {
@@ -444,7 +444,7 @@ export const injectMockDpsData = () => {
         target: { id: 44099, mob: { code: 2300229, name: "근접 훈련용 허수아비", boss: false } },
       },
     });
-  }, 2000);
+  }, 5000);
 
   const mockBridge = {
     getDpsData: () => {
@@ -454,7 +454,7 @@ export const injectMockDpsData = () => {
     getBattleDetail: (_id: string) => JSON.stringify(MOCK_DETAIL_DATA),
     getBattleDetailFromList: (_idx: number, _uid: number) => JSON.stringify(MOCK_DETAIL_DATA),
     getBattleList: () => JSON.stringify(history),
-    getVersion: () => "1.2.1",
+    getVersion: () => "1.9.11",
     getLiveBuffOperatingRate: (_id: number) => JSON.stringify(MOCK_BUFF_DATA),
     getTrackerStatus: () =>
       JSON.stringify({
