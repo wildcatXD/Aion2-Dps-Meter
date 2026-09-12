@@ -430,7 +430,7 @@ export const injectMockDpsData = () => {
     information: { ...MOCK_DATA.information },
     target: { ...MOCK_DATA.target, mob: { ...MOCK_DATA.target.mob } },
   };
-  const history = [...MOCK_HISTORY_DATA];
+  const history: Array<{ first: number; second: Record<string, unknown> }> = [...MOCK_HISTORY_DATA];
   window.setTimeout(() => {
     history.push({
       first: history.length,
