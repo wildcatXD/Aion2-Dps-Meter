@@ -274,12 +274,11 @@ const SidePanelComponent = ({
           </div>
         )}
         {currentType === "history" && (
-          <div
-            key={currentPlayer?.id}
-            className={SIDE_SHELL.history}>
+          <div className={SIDE_SHELL.history}>
             <HistoryPanel
               formatBattleTime={formatBattleTime}
               onSelectHistory={onSelectHistory}
+              selectedIdx={historyIdx}
             />
           </div>
         )}
@@ -332,7 +331,8 @@ const areSidePanelPropsEqual = (prev: SidePanelProps, next: SidePanelProps) => {
   if (next.type === "history") {
     return (
       prev.formatBattleTime === next.formatBattleTime &&
-      prev.onSelectHistory === next.onSelectHistory
+      prev.onSelectHistory === next.onSelectHistory &&
+      prev.historyIdx === next.historyIdx
     );
   }
 

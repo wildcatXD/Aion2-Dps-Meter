@@ -8,6 +8,7 @@ import { normalizeGuildUrl } from "@/lib/guildApi";
 interface Props {
   formatBattleTime: (ms: number) => string;
   onSelectHistory: (idx: number, report: any) => void;
+  selectedIdx?: number;
 }
 
 type UploadStatus = "idle" | "loading" | "success" | "error";
@@ -19,7 +20,7 @@ const formatDateTime = (ms: number) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 };
 
-export const HistoryPanel = ({ formatBattleTime, onSelectHistory }: Props) => {
+export const HistoryPanel = ({ formatBattleTime, onSelectHistory, selectedIdx }: Props) => {
   const { historyList, loading, fetchHistory } = useHistory();
   const theme = useSettingsStore((s) => s.theme);
   const guildWebUrl = useSettingsStore((s) => s.guildWebUrl);
@@ -30,7 +31,9 @@ export const HistoryPanel = ({ formatBattleTime, onSelectHistory }: Props) => {
 
   useEffect(() => {
     fetchHistory();
-  }, []);
+    const timer = window.setInterval(() => fetchHistory({ silent: true }), 1500);
+    return () => window.clearInterval(timer);
+  }, [fetchHistory]);
 
   const isAnyUploading = Object.values(uploadStatus).some((s) => s === "loading");
 
@@ -76,7 +79,9 @@ export const HistoryPanel = ({ formatBattleTime, onSelectHistory }: Props) => {
               className="flex items-center gap-2">
               <div
                 onClick={() => onSelectHistory(item.idx, item.raw)}
-                className="relative w-full px-3 rounded-lg overflow-hidden bg-black/40 cursor-pointer hover:brightness-125 transition-all duration-200"
+                className={`relative w-full px-3 rounded-lg overflow-hidden bg-black/40 cursor-pointer hover:brightness-125 transition-all duration-200 ${
+                  selectedIdx === item.idx ? "ring-1 ring-amber-400/70" : ""
+                }`}
                 style={{ minHeight: 52 }}>
                 <div
                   className="absolute inset-0 origin-left"
